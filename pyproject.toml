@@ -1,0 +1,25 @@
+[project]
+name = "boc-translator"
+version = "0.1.0"
+description = "Sistema de Traducción Offline para Banco de China"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "docx2pdf>=0.1.8",
+    "fastapi>=0.123.9",
+    "faster-whisper>=1.2.1",
+    "ffmpeg-python>=0.2.0",
+    "huggingface-hub>=1.2.1",
+    "librosa>=0.11.0",
+    "numpy<2.0",
+    "ollama>=0.6.1",
+    "openpyxl>=3.1.5",
+    "pdf2docx>=0.5.8",
+    "pypdf2>=3.0.1",
+    "python-docx>=1.2.0",
+    "python-multipart>=0.0.20",
+    "scipy>=1.16.3",
+    "soundfile>=0.13.1",
+    "uvicorn[standard]>=0.38.0",
+    "websockets>=15.0.1",
+]

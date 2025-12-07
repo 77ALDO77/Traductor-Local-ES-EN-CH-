@@ -1,0 +1,15 @@
+# Python & UV
+.venv/
+__pycache__/
+*.pyc
+
+# Archivos del Sistema
+.DS_Store
+Thumbs.db
+
+# BoC Translator Data
+uploads/*
+!uploads/.gitkeep
+models/*
+!models/.gitkeep
+.env

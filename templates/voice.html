@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>BoC Translator - Voice Translation</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#a61c2e",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#121212",
+                    },
+                    fontFamily: { "display": ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+
+        @keyframes wave {
+
+            0%,
+            40%,
+            100% {
+                transform: scaleY(0.4);
+            }
+
+            20% {
+                transform: scaleY(1);
+            }
+        }
+    </style>
+</head>
+
+<body class="font-display bg-background-light dark:bg-background-dark">
+    <div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
+        <div class="flex min-h-screen">
+
+            <!-- Sidebar -->
+            <aside class="w-64 flex-shrink-0 bg-white dark:bg-zinc-900 dark:border-r dark:border-white/10 shadow-sm">
+                <div class="flex h-full flex-col justify-between p-4">
+                    <div class="flex flex-col gap-8">
+                        <div class="flex items-center gap-3 px-3">
+                            <div class="bg-primary rounded-lg p-2 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-white text-2xl">translate</span>
+                            </div>
+                            <div class="flex flex-col">
+                                <h1 class="text-gray-900 dark:text-white text-lg font-bold">BoC Translator</h1>
+                                <p class="text-gray-500 dark:text-gray-400 text-sm">Bank of China</p>
+                            </div>
+                        </div>
+                        <nav class="flex flex-col gap-2">
+                            <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5"
+                                href="/">
+                                <span
+                                    class="material-symbols-outlined text-gray-700 dark:text-gray-300">translate</span>
+                                <p class="text-gray-700 dark:text-gray-300 text-sm font-medium">Text Translation</p>
+                            </a>
+                            <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5"
+                                href="/documents">
+                                <span
+                                    class="material-symbols-outlined text-gray-700 dark:text-gray-300">description</span>
+                                <p class="text-gray-700 dark:text-gray-300 text-sm font-medium">Document Translator</p>
+                            </a>
+                            <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 dark:bg-primary/20"
+                                href="/voice">
+                                <span class="material-symbols-outlined fill text-primary">mic</span>
+                                <p class="text-primary text-sm font-medium">Voice Translation</p>
+                            </a>
+                        </nav>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1 p-8 bg-gray-100 dark:bg-zinc-800">
+                <div class="flex flex-col gap-6 max-w-4xl mx-auto">
+                    <div class="flex flex-wrap justify-between gap-3">
+                        <div class="flex min-w-72 flex-col gap-2">
+                            <p class="text-gray-900 dark:text-white text-4xl font-black leading-tight">Voice Translation
+                            </p>
+                            <p class="text-gray-500 dark:text-gray-400 text-base">Real-time voice translation for
+                                seamless conversations.</p>
+                        </div>
+                    </div>
+
+                    <!-- Voice Card -->
+                    <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm p-6 flex flex-col items-center gap-6">
+                        <!-- Language Selector Row -->
+                        <div class="w-full flex justify-between items-center gap-4">
+                            <div class="flex-1 flex flex-col items-center gap-2">
+                                <span class="text-sm font-medium text-gray-500 dark:text-gray-400">YOU</span>
+                                <div class="flex items-center gap-2">
+                                    <span
+                                        class="material-symbols-outlined text-lg text-black dark:text-white">auto_awesome</span>
+                                    <span class="text-lg font-bold text-black dark:text-white">Auto-detect</span>
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <button
+                                    class="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white hover:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700">
+                                    <span
+                                        class="material-symbols-outlined text-gray-600 dark:text-gray-300 text-2xl">swap_horiz</span>
+                                </button>
+                            </div>
+                            <div class="flex-1 flex flex-col items-center gap-2">
+                                <span class="text-sm font-medium text-gray-500 dark:text-gray-400">SPEAKER</span>
+                                <div class="relative group">
+                                    <button
+                                        class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
+                                        <span id="selected-language"
+                                            class="text-lg font-bold text-black dark:text-white">Spanish</span>
+                                        <span
+                                            class="material-symbols-outlined text-gray-500 dark:text-gray-400">expand_more</span>
+                                    </button>
+                                    <div
+                                        class="absolute z-10 hidden group-hover:block top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-100 dark:border-zinc-700">
+                                        <a class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-zinc-700 text-black dark:text-white text-sm font-medium cursor-pointer"
+                                            data-language="Spanish">
+                                            <span>🇪🇸 Spanish</span>
+                                        </a>
+                                        <a class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-zinc-700 text-black dark:text-white text-sm font-medium cursor-pointer"
+                                            data-language="English">
+                                            <span>🇺🇸 English</span>
+                                        </a>
+                                        <a class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-zinc-700 text-black dark:text-white text-sm font-medium cursor-pointer"
+                                            data-language="Chinese">
+                                            <span>🇨🇳 Chinese</span>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="w-full h-px bg-gray-200 dark:bg-zinc-700"></div>
+
+                        <!-- Chat Container -->
+                        <div id="chat-container" class="w-full flex flex-col gap-6 overflow-y-auto px-4"
+                            style="height: 400px;">
+                            <!-- Messages will be added here by JavaScript -->
+                            <div class="flex items-center justify-center h-full text-gray-400">
+                                <p>Presiona el micrófono para comenzar</p>
+                            </div>
+                        </div>
+
+                        <!-- Waveform & Controls -->
+                        <div class="w-full flex flex-col items-center gap-4 pt-4">
+                            <!-- Status Text -->
+                            <p id="status-text" class="text-sm text-gray-500 dark:text-gray-400">Conectando...</p>
+
+                            <!-- Waveform -->
+                            <div id="waveform" aria-label="Audio waveform"
+                                class="flex items-center justify-center w-full h-20 opacity-30 transition-opacity">
+                                <div class="w-1.5 h-4 bg-primary/20 rounded-full"
+                                    style="animation: wave 1.2s ease-in-out infinite both; animation-delay: -0.2s;">
+                                </div>
+                                <div class="w-1.5 h-8 bg-primary/40 rounded-full ml-1.5"
+                                    style="animation: wave 1.2s ease-in-out infinite both; animation-delay: -0.4s;">
+                                </div>
+                                <div class="w-1.5 h-12 bg-primary/60 rounded-full ml-1.5"
+                                    style="animation: wave 1.2s ease-in-out infinite both; animation-delay: -0.6s;">
+                                </div>
+                                <div class="w-1.5 h-16 bg-primary rounded-full ml-1.5"
+                                    style="animation: wave 1.2s ease-in-out infinite both; animation-delay: -0.8s;">
+                                </div>
+                                <div class="w-1.5 h-12 bg-primary/60 rounded-full ml-1.5"
+                                    style="animation: wave 1.2s ease-in-out infinite both; animation-delay: -0.6s;">
+                                </div>
+                                <div class="w-1.5 h-8 bg-primary/40 rounded-full ml-1.5"
+                                    style="animation: wave 1.2s ease-in-out infinite both; animation-delay: -0.4s;">
+                                </div>
+                                <div class="w-1.5 h-4 bg-primary/20 rounded-full ml-1.5"
+                                    style="animation: wave 1.2s ease-in-out infinite both; animation-delay: -0.2s;">
+                                </div>
+                                <div class="w-1.5 h-6 bg-primary/30 rounded-full ml-1.5"
+                                    style="animation: wave 1.2s ease-in-out infinite both; animation-delay: -0.3s;">
+                                </div>
+                                <div class="w-1.5 h-10 bg-primary/50 rounded-full ml-1.5"
+                                    style="animation: wave 1.2s ease-in-out infinite both; animation-delay: -0.5s;">
+                                </div>
+                                <div class="w-1.5 h-14 bg-primary/80 rounded-full ml-1.5"
+                                    style="animation: wave 1.2s ease-in-out infinite both; animation-delay: -0.7s;">
+                                </div>
+                                <div class="w-1.5 h-10 bg-primary/50 rounded-full ml-1.5"
+                                    style="animation: wave 1.2s ease-in-out infinite both; animation-delay: -0.5s;">
+                                </div>
+                                <div class="w-1.5 h-6 bg-primary/30 rounded-full ml-1.5"
+                                    style="animation: wave 1.2s ease-in-out infinite both; animation-delay: -0.3s;">
+                                </div>
+                            </div>
+
+                            <!-- Buttons -->
+                            <div class="flex items-center gap-8">
+                                <button
+                                    class="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 transition-colors">
+                                    <span
+                                        class="material-symbols-outlined text-gray-700 dark:text-gray-300 text-2xl">delete</span>
+                                </button>
+                                <button id="mic-button"
+                                    class="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-white shadow-lg hover:bg-primary/90 transition-colors">
+                                    <span class="material-symbols-outlined text-4xl fill">mic</span>
+                                </button>
+                                <button
+                                    class="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 transition-colors">
+                                    <span
+                                        class="material-symbols-outlined text-gray-700 dark:text-gray-300 text-2xl">volume_up</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="/static/js/voice.js"></script>
+</body>
+
+</html>
