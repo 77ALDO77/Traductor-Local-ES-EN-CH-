@@ -20,17 +20,20 @@ from backend.routers import translation, documents, voice
 
 
 # Configurar logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-# Configuración
-OLLAMA_HOST = "http://localhost:11434"
-MODEL_NAME = "qwen2.5:7b"
+# Configuración desde variables de entorno (para Docker)
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+MODEL_NAME = os.getenv("MODEL_NAME", "qwen2.5:7b")
 UPLOAD_DIR = Path("uploads")
 
 # Configuración de limpieza
-CLEANUP_INTERVAL_MINUTES = 10
-FILE_RETENTION_MINUTES = 30
+CLEANUP_INTERVAL_MINUTES = int(os.getenv("CLEANUP_INTERVAL_MINUTES", "10"))
+FILE_RETENTION_MINUTES = int(os.getenv("FILE_RETENTION_MINUTES", "30"))
 
 
 async def cleanup_old_files():
@@ -72,7 +75,9 @@ async def cleanup_old_files():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle management del servidor."""
-    print("🚀 Iniciando BoC_Translator...")
+    logger.info("🚀 Iniciando BoC_Translator...")
+    logger.info(f"   Ollama Host: {OLLAMA_HOST}")
+    logger.info(f"   Modelo LLM: {MODEL_NAME}")
     
     # Verificar conexión con Ollama
     try:
@@ -81,25 +86,28 @@ async def lifespan(app: FastAPI):
         model_names = [m.model for m in models.models]
         
         if not any(MODEL_NAME in name for name in model_names):
-            print(f"⚠️  ADVERTENCIA: Modelo '{MODEL_NAME}' no encontrado.")
+            logger.warning(f"⚠️  ADVERTENCIA: Modelo '{MODEL_NAME}' no encontrado en Ollama.")
+            logger.warning(f"   Ejecuta: docker exec boc_translator_ollama ollama pull {MODEL_NAME}")
         else:
-            print(f"✅ Modelo '{MODEL_NAME}' encontrado y listo.")
+            logger.info(f"✅ Modelo '{MODEL_NAME}' encontrado y listo.")
         
-        print("✅ Conexión con Ollama establecida.")
+        logger.info("✅ Conexión con Ollama establecida.")
     except Exception as e:
-        print(f"❌ Error conectando con Ollama: {e}")
+        logger.error(f"❌ Error conectando con Ollama: {e}")
+        logger.error("   Verifica que el contenedor 'ollama' esté corriendo.")
     
     # Crear carpetas necesarias
     UPLOAD_DIR.mkdir(exist_ok=True)
     Path("models").mkdir(exist_ok=True)
-    print(f"📁 Carpeta de uploads: {UPLOAD_DIR.absolute()}")
+    logger.info(f"📁 Carpeta de uploads: {UPLOAD_DIR.absolute()}")
     
     # Iniciar tarea de limpieza
     cleanup_task = asyncio.create_task(cleanup_old_files())
-    print(f"🧹 Limpieza automática cada {CLEANUP_INTERVAL_MINUTES} minutos")
+    logger.info(f"🧹 Limpieza automática cada {CLEANUP_INTERVAL_MINUTES} minutos")
+    logger.info(f"   Retención de archivos: {FILE_RETENTION_MINUTES} minutos")
     
     # Info sobre modelo de voz
-    print("🎤 Modelo Faster-Whisper (medium/int8) se cargará en primer uso")
+    logger.info("🎤 Modelo Faster-Whisper (medium/int8) se cargará en primer uso")
     
     yield
     
@@ -110,7 +118,7 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         pass
     
-    print("👋 Cerrando BoC_Translator...")
+    logger.info("👋 Cerrando BoC_Translator...")
 
 
 app = FastAPI(
@@ -158,8 +166,9 @@ async def health_check():
         "fastapi": "healthy",
         "ollama": "unknown",
         "model_llm": MODEL_NAME,
-        "model_voice": "SenseVoiceSmall",
-        "voice_loaded": voice_service.model_loaded
+        "model_voice": "Faster-Whisper (medium)",
+        "voice_loaded": voice_service.model_loaded,
+        "environment": "docker" if os.path.exists("/.dockerenv") else "local"
     }
     
     try:

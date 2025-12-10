@@ -416,18 +416,6 @@ Para reportar bugs o solicitar nuevas funcionalidades:
 
 ## 🙏 Agradecimientos
 
-- [Ollama](https://ollama.com/) por el framework de LLMs local
-- [Faster-Whisper](https://github.com/guillaumekln/faster-whisper) por el motor ASR optimizado
-- [FastAPI](https://fastapi.tiangolo.com/) por el framework web moderno
-- [Qwen Team](https://github.com/QwenLM/Qwen) por el modelo de lenguaje
-- [UV](https://github.com/astral-sh/uv) por el gestor de paquetes rápido
-
----
-
-## 👨‍💻 Autor
-
-**Joaquín Loa Denegri**
-
 - 💼 GitHub: [@LOAD-13](https://github.com/LOAD-13)
 - 🌐 Portfolio: [jloadenegri.org](https://jloadenegri.org)
 - 🎓 Proyecto: Ingeniería de Software - Bank of China
@@ -476,7 +464,7 @@ SOFTWARE.
 
 **🔒 Sistema Desarrollado para Entornos de Máxima Seguridad**
 
-**Hecho con ❤️ por [Joaquín Loa Denegri](https://github.com/LOAD-13) y [Aldo Santos](https://github.com/aldosantos)**
+**Hecho con ❤️ por [Joaquín Loa Denegri](https://github.com/LOAD-13)**
 
 *Traducción empresarial sin comprometer la seguridad de tus datos*
 

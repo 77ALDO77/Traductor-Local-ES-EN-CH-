@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: boc_translator_backend_v1
+    restart: unless-stopped
+    ports:
+      - "7000:8000"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - MODEL_NAME=qwen2.5:7b
+      - CLEANUP_INTERVAL_MINUTES=10
+      - FILE_RETENTION_MINUTES=30
+      - LOG_LEVEL=INFO
+    volumes:
+      - boc_whisper_data:/app/models
+      - boc_uploads:/app/uploads
+    networks:
+      - translator_network
+    depends_on:
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: boc_translator_ollama_v1
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    volumes:
+      - boc_ollama_data:/root/.ollama
+    networks:
+      - translator_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  translator_network:
+    driver: bridge
+    name: boc_translator_net
+
+volumes:
+  boc_ollama_data:
+    driver: local
+    name: boc_ollama_data
+  boc_whisper_data:
+    driver: local
+    name: boc_whisper_data
+  boc_uploads:
+    driver: local
+    name: boc_uploads

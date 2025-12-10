@@ -2,12 +2,18 @@
 Servicio de integración con Ollama para traducciones.
 """
 
+import os
 from ollama import AsyncClient, ResponseError
 import time
 
 
+# Configuración desde variable de entorno
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+MODEL_NAME = os.getenv("MODEL_NAME", "qwen2.5:7b")
+
+
 class OllamaTranslationService:
-    def __init__(self, host: str = "http://localhost:11434", model: str = "qwen2.5:7b"):
+    def __init__(self, host: str = OLLAMA_HOST, model: str = MODEL_NAME):
         self.host = host
         self.model = model
         self.client = AsyncClient(host=host)
