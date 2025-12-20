@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # Configuración desde variables de entorno (para Docker)
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-MODEL_NAME = os.getenv("MODEL_NAME", "qwen2.5:7b")
+MODEL_NAME = os.getenv("MODEL_NAME", "qwen2.5:3b")
 UPLOAD_DIR = Path("uploads")
 
 # Configuración de limpieza

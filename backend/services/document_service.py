@@ -86,8 +86,8 @@ class DocumentService:
         async with self.semaphore:
             result = await translation_service.translate(
                 text=text,
-                source_language=source_lang,
-                target_language=target_lang
+                source_lang=source_lang,
+                target_lang=target_lang
             )
             return result["translated_text"]
     

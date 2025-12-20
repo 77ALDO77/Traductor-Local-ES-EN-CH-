@@ -22,8 +22,8 @@ async def translate_text(request: TranslationRequest):
     try:
         result = await translation_service.translate(
             text=request.text,
-            source_language=request.source_language.value,
-            target_language=request.target_language.value
+            source_lang=request.source_language.value,
+            target_lang=request.target_language.value
         )
         
         return TranslationResponse(
@@ -31,7 +31,7 @@ async def translate_text(request: TranslationRequest):
             translated_text=result["translated_text"],
             source_language=request.source_language,
             target_language=request.target_language,
-            model_used=translation_service.model,
+            model_used="translator_engine",
             processing_time_ms=result["processing_time_ms"]
         )
         

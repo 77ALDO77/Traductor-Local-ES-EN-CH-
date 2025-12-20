@@ -88,8 +88,8 @@ async def transcribe_audio(
             trans_start = time.time()
             result = await translation_service.translate(
                 text=text,
-                source_language=detected_lang,
-                target_language=target_language
+                source_lang=detected_lang,
+                target_lang=target_language
             )
             translated_text = result["translated_text"]
             translation_time = (time.time() - trans_start) * 1000
@@ -111,6 +111,13 @@ async def transcribe_audio(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+NAME_TO_ISO = {
+    "English": "en",
+    "Spanish": "es",
+    "Chinese": "zh",
+}
+
+
 @router.websocket("/ws")
 async def voice_websocket(websocket: WebSocket):
     """
@@ -126,6 +133,8 @@ async def voice_websocket(websocket: WebSocket):
     await websocket.accept()
     logger.info("🔌 WebSocket conectado")
     
+    # Idiomas por defecto (usuario selecciona en el front)
+    source_language = "Spanish"
     target_language = "Spanish"
     
     try:
@@ -141,6 +150,11 @@ async def voice_websocket(websocket: WebSocket):
                 "data": {"message": "Modelo cargado. Listo para transcribir."}
             })
         
+        # Buffer de audio para la sesión actual
+        audio_buffer = bytearray()
+        # Guardar el primer chunk (header WebM) para reusarlo al resetear buffer
+        header_chunk = b""
+        
         while True:
             # Recibir mensaje
             message = await websocket.receive_json()
@@ -148,26 +162,43 @@ async def voice_websocket(websocket: WebSocket):
             
             if msg_type == "config":
                 # Actualizar configuración
-                target_language = message.get("target_language", "Spanish")
+                source_language = message.get("source_language", source_language)
+                target_language = message.get("target_language", target_language)
                 await websocket.send_json({
                     "type": "status",
-                    "data": {"message": f"Idioma destino: {target_language}"}
+                    "data": {"message": f"Origen: {source_language} | Destino: {target_language}"}
                 })
+                # Limpiar buffer al cambiar config? No necesariamente, pero un reset es útil.
+                # audio_buffer = bytearray() 
+
                 
             elif msg_type == "audio":
                 # Procesar audio
                 try:
                     audio_b64 = message.get("data")
                     sample_rate = message.get("sample_rate", 16000)
+                    # Permitir override por mensaje, con fallback al estado
+                    src_lang = message.get("source_language", source_language)
                     target_lang = message.get("target_language", target_language)
                     
                     # Decodificar base64
                     audio_bytes = base64.b64decode(audio_b64)
                     
-                    # Transcribir
+                    if not header_chunk:
+                        header_chunk = audio_bytes
+                    
+                    # Acumular en el buffer
+                    audio_buffer.extend(audio_bytes)
+                    
+                    # Transcribir el buffer completo acumulado hasta ahora
+                    # Mapear a código ISO para forzar idioma en Whisper
+                    iso = NAME_TO_ISO.get(src_lang, None)
+                    if iso and len(iso) != 2:
+                        iso = None
                     text, detected_lang, trans_time = await voice_service.transcribe_audio(
-                        audio_data=audio_bytes,
-                        sample_rate=sample_rate
+                        audio_data=bytes(audio_buffer),
+                        sample_rate=sample_rate,
+                        forced_language=iso
                     )
                     
                     if not text:
@@ -175,24 +206,47 @@ async def voice_websocket(websocket: WebSocket):
                             "type": "status",
                             "data": {"message": "No se detectó voz"}
                         })
+
                         continue
                     
+                    # Filtro de alucinaciones conocidas de Whisper
+                    HALLUCINATIONS = [
+                        "¡Gracias por ver el vídeo!",
+                        "Thanks for watching!",
+                        "Gracias por ver el video",
+                        "Suscríbete al canal",
+                        "Subtitles by",
+                    ]
+                    
+                    text_lower = text.lower().strip()
+                    is_hallucination = False
+                    for h in HALLUCINATIONS:
+                        if h.lower() in text_lower:
+                             # Si es *solo* la alucinación o domina el texto, ignorar
+                             if len(text) < len(h) + 10:
+                                 is_hallucination = True
+                                 break
+                    
+                    if is_hallucination:
+                        continue
+
                     # Enviar transcripción
                     await websocket.send_json({
                         "type": "transcription",
                         "data": {
                             "text": text,
-                            "language": detected_lang,
+                            # Mostrar el idioma de origen seleccionado (no autodetección)
+                            "language": src_lang,
                             "time_ms": round(trans_time, 2)
                         }
                     })
                     
-                    # Traducir si es necesario
-                    if detected_lang != target_lang:
+                    # Traducir si es necesario según origen/destino provistos
+                    if src_lang != target_lang:
                         result = await translation_service.translate(
                             text=text,
-                            source_language=detected_lang,
-                            target_language=target_lang
+                            source_lang=src_lang,
+                            target_lang=target_lang
                         )
                         
                         await websocket.send_json({
@@ -200,7 +254,7 @@ async def voice_websocket(websocket: WebSocket):
                             "data": {
                                 "original": text,
                                 "translated": result["translated_text"],
-                                "source_language": detected_lang,
+                                "source_language": src_lang,
                                 "target_language": target_lang,
                                 "time_ms": result.get("processing_time_ms", 0)
                             }
@@ -212,11 +266,22 @@ async def voice_websocket(websocket: WebSocket):
                             "data": {
                                 "original": text,
                                 "translated": text,
-                                "source_language": detected_lang,
+                                "source_language": src_lang,
                                 "target_language": target_lang,
                                 "time_ms": 0
                             }
                         })
+
+                    # 4. Verificar fin de frase para "segmentar" la conversación
+                    # Si el texto termina en puntuación fuerte y tiene cierta longitud, asumimos fin de idea.
+                    # Esto permite limpiar el buffer (para velocidad) y crear nueva burbuja en UI.
+                    stripped_text = text.strip()
+                    if len(stripped_text) > 5 and stripped_text[-1] in ".!?。！？":
+                        # Enviar señal de fin de segmento
+                        await websocket.send_json({"type": "segment_end"})
+                        
+                        # Resetear buffer pero MANTENER el header
+                        audio_buffer = bytearray(header_chunk)
                         
                 except Exception as e:
                     logger.error(f"Error procesando audio: {e}")

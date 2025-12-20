@@ -105,7 +105,6 @@ async function handleTranslate() {
 
     state.isTranslating = true;
     setTranslateButtonLoading(true);
-    setOutputLoading(true);
 
     try {
         const response = await fetch(`${API_BASE}/api/translate/text`, {
@@ -147,7 +146,6 @@ async function handleTranslate() {
     } finally {
         state.isTranslating = false;
         setTranslateButtonLoading(false);
-        setOutputLoading(false);
     }
 }
 
@@ -193,13 +191,7 @@ function setTranslateButtonLoading(loading) {
 
     if (loading) {
         translateBtn.disabled = true;
-        translateBtn.innerHTML = `
-            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                ircle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span>Translating...</span>
-        `;
+        translateBtn.textContent = 'Translating...';
     } else {
         translateBtn.disabled = false;
         translateBtn.innerHTML = `
@@ -209,24 +201,7 @@ function setTranslateButtonLoading(loading) {
     }
 }
 
-/**
- * Muestra estado de carga en el output
- */
-function setOutputLoading(loading) {
-    if (!targetOutput) return;
-
-    if (loading) {
-        targetOutput.innerHTML = `
-            <div class="flex items-center gap-2 text-gray-400">
-                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    ircle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Translating with Qwen AI...</span>
-            </div>
-        `;
-    }
-}
+// Eliminado: setOutputLoading por respuesta casi instantánea
 
 /**
  * Muestra una notificación toast

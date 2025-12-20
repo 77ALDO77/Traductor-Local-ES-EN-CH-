@@ -8,11 +8,16 @@ const API_BASE = '';
 // Estado
 const state = {
     isRecording: false,
+    sourceLanguage: 'Spanish',
     targetLanguage: 'Spanish',
     websocket: null,
     mediaRecorder: null,
-    audioChunks: [],
-    isConnected: false
+    mediaStream: null,
+    isConnected: false,
+    reconnectAttempts: 0,
+    // Elementos de mensaje en curso para transcripción/traducción progresiva
+    currentOriginalEl: null,
+    currentTranslatedEl: null
 };
 
 // Elementos DOM
@@ -29,12 +34,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event listeners
     micButton?.addEventListener('click', toggleRecording);
 
-    // Selector de idioma
+    // Selector de idioma destino
     document.querySelectorAll('[data-language]').forEach(el => {
         el.addEventListener('click', (e) => {
             e.preventDefault();
             const lang = e.currentTarget.dataset.language;
             setTargetLanguage(lang);
+        });
+    });
+
+    // Selector de idioma origen (usuario habla)
+    document.querySelectorAll('[data-source-language]').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            const lang = e.currentTarget.dataset.sourceLanguage;
+            setSourceLanguage(lang);
         });
     });
 
@@ -58,11 +72,13 @@ function connectWebSocket() {
     state.websocket.onopen = () => {
         console.log('WebSocket connected');
         state.isConnected = true;
+        state.reconnectAttempts = 0;
         updateStatus('Listo para grabar');
 
         // Enviar configuración inicial
         state.websocket.send(JSON.stringify({
             type: 'config',
+            source_language: state.sourceLanguage,
             target_language: state.targetLanguage
         }));
     };
@@ -77,8 +93,16 @@ function connectWebSocket() {
         state.isConnected = false;
         updateStatus('Desconectado. Reconectando...');
 
-        // Reconectar después de 2 segundos
-        setTimeout(connectWebSocket, 2000);
+        // Si estaba grabando, detener con aviso
+        if (state.isRecording) {
+            stopRecording(true);
+            showNotification('Conexión perdida. Grabación detenida.', 'warning');
+        }
+
+        // Reconectar con backoff exponencial (máx 10s)
+        state.reconnectAttempts += 1;
+        const delay = Math.min(10000, 1000 * Math.pow(2, state.reconnectAttempts - 1));
+        setTimeout(connectWebSocket, delay);
     };
 
     state.websocket.onerror = (error) => {
@@ -94,13 +118,13 @@ function handleWebSocketMessage(message) {
             break;
 
         case 'transcription':
-            // Mostrar texto original (burbuja izquierda)
-            addChatMessage(message.data.text, 'original', message.data.language);
+            // Mostrar/actualizar transcripción progresiva (burbuja izquierda)
+            updateProgressMessage('original', message.data.text, message.data.language);
             break;
 
         case 'translation':
-            // Mostrar traducción (burbuja derecha)
-            addChatMessage(message.data.translated, 'translated', message.data.target_language);
+            // Mostrar/actualizar traducción progresiva (burbuja derecha)
+            updateProgressMessage('translated', message.data.translated, message.data.target_language);
             break;
 
         case 'error':
@@ -110,6 +134,12 @@ function handleWebSocketMessage(message) {
 
         case 'pong':
             // Keep-alive response
+            break;
+
+        case 'segment_end':
+            // Finalizar burbuja actual y preparar para la siguiente
+            state.currentOriginalEl = null;
+            state.currentTranslatedEl = null;
             break;
     }
 }
@@ -132,44 +162,65 @@ async function startRecording() {
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 channelCount: 1,
-                sampleRate: 16000,
+                sampleRate: 48000,
                 echoCancellation: true,
                 noiseSuppression: true
             }
         });
 
-        state.mediaRecorder = new MediaRecorder(stream, {
-            mimeType: 'audio/webm;codecs=opus'
-        });
+        state.mediaStream = stream;
+        // Preferir 'audio/webm;codecs=opus' con fallback seguro
+        let preferredType = 'audio/webm;codecs=opus';
+        let mimeType = undefined;
+        try {
+            if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
+                if (MediaRecorder.isTypeSupported(preferredType)) {
+                    mimeType = preferredType;
+                } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+                    mimeType = 'audio/webm';
+                } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+                    // Último recurso (no deseado para backend actual)
+                    mimeType = 'audio/ogg;codecs=opus';
+                }
+            }
+        } catch (_) { /* no-op */ }
 
-        state.audioChunks = [];
+        state.mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
 
+        // Envío en streaming cada 0.5s para menor latencia
         state.mediaRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) {
-                state.audioChunks.push(event.data);
+            if (event.data && event.data.size > 0 && state.isConnected && state.websocket?.readyState === WebSocket.OPEN) {
+                blobToBase64(event.data).then((base64Audio) => {
+                    try {
+                        state.websocket.send(JSON.stringify({
+                            type: 'audio',
+                            data: base64Audio,
+                            sample_rate: 48000,
+                            source_language: state.sourceLanguage,
+                            target_language: state.targetLanguage
+                        }));
+                    } catch (e) {
+                        console.error('Error enviando chunk de audio:', e);
+                    }
+                }).catch(err => console.error('Error convirtiendo audio a base64:', err));
             }
         };
 
-        state.mediaRecorder.onstop = async () => {
-            // Convertir chunks a blob
-            const audioBlob = new Blob(state.audioChunks, { type: 'audio/webm' });
-
-            // Convertir a WAV para enviar
-            const wavBlob = await convertToWav(audioBlob);
-
-            // Enviar por WebSocket
-            sendAudioToServer(wavBlob);
-
+        state.mediaRecorder.onstop = () => {
             // Detener stream
-            stream.getTracks().forEach(track => track.stop());
+            if (state.mediaStream) {
+                state.mediaStream.getTracks().forEach(track => track.stop());
+                state.mediaStream = null;
+            }
         };
 
-        state.mediaRecorder.start();
+        // timeslice en ms para generar chunks de 0.5s
+        state.mediaRecorder.start(500);
         state.isRecording = true;
 
         updateMicButton(true);
         showWaveform(true);
-        updateStatus('Grabando...');
+        updateStatus('Grabando... (streaming)');
 
     } catch (error) {
         console.error('Error accessing microphone:', error);
@@ -177,101 +228,36 @@ async function startRecording() {
     }
 }
 
-function stopRecording() {
+function stopRecording(fromDisconnect = false) {
     if (state.mediaRecorder && state.isRecording) {
-        state.mediaRecorder.stop();
+        try { state.mediaRecorder.stop(); } catch { }
         state.isRecording = false;
 
         updateMicButton(false);
         showWaveform(false);
-        updateStatus('Procesando...');
+        updateStatus(fromDisconnect ? 'Desconectado' : 'Listo para grabar');
+
+        // Reiniciar referencias de mensajes en curso para el próximo turno
+        state.currentOriginalEl = null;
+        state.currentTranslatedEl = null;
     }
 }
 
-async function convertToWav(webmBlob) {
-    // Usar AudioContext para decodificar y re-encodear
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)({
-        sampleRate: 16000
+// Utilidad: convertir Blob a base64 (sin prefijo data:)
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            try {
+                const base64 = (reader.result || '').toString().split(',')[1];
+                resolve(base64);
+            } catch (e) {
+                reject(e);
+            }
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
     });
-
-    const arrayBuffer = await webmBlob.arrayBuffer();
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-    // Convertir a WAV
-    const wavBuffer = audioBufferToWav(audioBuffer);
-    return new Blob([wavBuffer], { type: 'audio/wav' });
-}
-
-function audioBufferToWav(buffer) {
-    const numOfChan = 1; // Mono
-    const length = buffer.length * numOfChan * 2;
-    const bufferArray = new ArrayBuffer(44 + length);
-    const view = new DataView(bufferArray);
-    const channels = [];
-    let sample;
-    let offset = 0;
-    let pos = 0;
-
-    // Escribir header WAV
-    setUint32(0x46464952); // "RIFF"
-    setUint32(36 + length); // file length - 8
-    setUint32(0x45564157); // "WAVE"
-
-    setUint32(0x20746d66); // "fmt " chunk
-    setUint32(16); // length
-    setUint16(1); // PCM
-    setUint16(numOfChan);
-    setUint32(buffer.sampleRate);
-    setUint32(buffer.sampleRate * 2 * numOfChan); // byte rate
-    setUint16(numOfChan * 2); // block align
-    setUint16(16); // bits per sample
-
-    setUint32(0x61746164); // "data" chunk
-    setUint32(length);
-
-    // Escribir datos
-    const channelData = buffer.getChannelData(0);
-    for (let i = 0; i < buffer.length; i++) {
-        sample = Math.max(-1, Math.min(1, channelData[i]));
-        sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-        view.setInt16(pos, sample, true);
-        pos += 2;
-    }
-
-    function setUint16(data) {
-        view.setUint16(pos, data, true);
-        pos += 2;
-    }
-
-    function setUint32(data) {
-        view.setUint32(pos, data, true);
-        pos += 4;
-    }
-
-    return bufferArray;
-}
-
-async function sendAudioToServer(wavBlob) {
-    if (!state.isConnected || !state.websocket) {
-        showNotification('No hay conexión', 'error');
-        return;
-    }
-
-    // Convertir a base64
-    const reader = new FileReader();
-    reader.onloadend = () => {
-        const base64Audio = reader.result.split(',')[1];
-
-        state.websocket.send(JSON.stringify({
-            type: 'audio',
-            data: base64Audio,
-            sample_rate: 16000,
-            target_language: state.targetLanguage
-        }));
-
-        updateStatus('Transcribiendo...');
-    };
-    reader.readAsDataURL(wavBlob);
 }
 
 function addChatMessage(text, type, language) {
@@ -294,7 +280,7 @@ function addChatMessage(text, type, language) {
     // Badge de idioma
     const langBadge = document.createElement('span');
     langBadge.className = 'text-xs text-gray-500 dark:text-gray-400 block mt-1';
-    langBadge.textContent = language;
+    langBadge.textContent = language || '';
 
     bubbleDiv.appendChild(textP);
     bubbleDiv.appendChild(langBadge);
@@ -304,7 +290,24 @@ function addChatMessage(text, type, language) {
     // Scroll al final
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
-    updateStatus('Listo para grabar');
+    return { container: messageDiv, bubble: bubbleDiv, textEl: textP, langEl: langBadge };
+}
+
+function updateProgressMessage(kind, text, language) {
+    if (!chatContainer) return;
+    let refKey = kind === 'original' ? 'currentOriginalEl' : 'currentTranslatedEl';
+    let ref = state[refKey];
+
+    if (!ref) {
+        ref = addChatMessage(text, kind, language);
+        state[refKey] = ref;
+    } else if (ref.textEl) {
+        ref.textEl.textContent = text;
+        if (language && ref.langEl) ref.langEl.textContent = language;
+    }
+
+    // asegurar scroll al final
+    chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
 function setTargetLanguage(language) {
@@ -320,11 +323,33 @@ function setTargetLanguage(language) {
     if (state.isConnected && state.websocket) {
         state.websocket.send(JSON.stringify({
             type: 'config',
+            source_language: state.sourceLanguage,
             target_language: language
         }));
     }
 
     showNotification(`Idioma destino: ${language}`, 'info');
+}
+
+function setSourceLanguage(language) {
+    state.sourceLanguage = language;
+
+    // Actualizar UI del dropdown
+    const selectedSrcEl = document.getElementById('selected-source-language');
+    if (selectedSrcEl) {
+        selectedSrcEl.textContent = language;
+    }
+
+    // Notificar al servidor
+    if (state.isConnected && state.websocket) {
+        state.websocket.send(JSON.stringify({
+            type: 'config',
+            source_language: language,
+            target_language: state.targetLanguage
+        }));
+    }
+
+    showNotification(`Hablas en: ${language}`, 'info');
 }
 
 function updateMicButton(isRecording) {

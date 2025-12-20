@@ -105,23 +105,41 @@
                     <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm p-6 flex flex-col items-center gap-6">
                         <!-- Language Selector Row -->
                         <div class="w-full flex justify-between items-center gap-4">
+                            <!-- Selector de idioma de origen (Usuario habla) -->
                             <div class="flex-1 flex flex-col items-center gap-2">
-                                <span class="text-sm font-medium text-gray-500 dark:text-gray-400">YOU</span>
-                                <div class="flex items-center gap-2">
-                                    <span
-                                        class="material-symbols-outlined text-lg text-black dark:text-white">auto_awesome</span>
-                                    <span class="text-lg font-bold text-black dark:text-white">Auto-detect</span>
+                                <span class="text-sm font-medium text-gray-500 dark:text-gray-400">YOU SPEAK</span>
+                                <div class="relative group">
+                                    <button
+                                        class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
+                                        <span id="selected-source-language"
+                                            class="text-lg font-bold text-black dark:text-white">Spanish</span>
+                                        <span
+                                            class="material-symbols-outlined text-gray-500 dark:text-gray-400">expand_more</span>
+                                    </button>
+                                    <div
+                                        class="absolute z-10 hidden group-hover:block top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-100 dark:border-zinc-700">
+                                        <a class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-zinc-700 text-black dark:text-white text-sm font-medium cursor-pointer"
+                                            data-source-language="Spanish">
+                                            <span>🇪🇸 Spanish</span>
+                                        </a>
+                                        <a class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-zinc-700 text-black dark:text-white text-sm font-medium cursor-pointer"
+                                            data-source-language="English">
+                                            <span>🇺🇸 English</span>
+                                        </a>
+                                        <a class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-zinc-700 text-black dark:text-white text-sm font-medium cursor-pointer"
+                                            data-source-language="Chinese">
+                                            <span>🇨🇳 Chinese</span>
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                             <div class="flex-shrink-0">
-                                <button
-                                    class="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white hover:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700">
-                                    <span
-                                        class="material-symbols-outlined text-gray-600 dark:text-gray-300 text-2xl">swap_horiz</span>
-                                </button>
+                                <!-- Botón swap oculto en esta iteración -->
+                                <div class="h-10 w-10"></div>
                             </div>
+                            <!-- Selector de idioma destino (Traducción) -->
                             <div class="flex-1 flex flex-col items-center gap-2">
-                                <span class="text-sm font-medium text-gray-500 dark:text-gray-400">SPEAKER</span>
+                                <span class="text-sm font-medium text-gray-500 dark:text-gray-400">TRANSLATE TO</span>
                                 <div class="relative group">
                                     <button
                                         class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
@@ -163,7 +181,7 @@
                         <!-- Waveform & Controls -->
                         <div class="w-full flex flex-col items-center gap-4 pt-4">
                             <!-- Status Text -->
-                            <p id="status-text" class="text-sm text-gray-500 dark:text-gray-400">Conectando...</p>
+                            <p id="status-text" class="text-sm text-gray-500 dark:text-gray-400">Permite el micrófono y empieza a hablar…</p>
 
                             <!-- Waveform -->
                             <div id="waveform" aria-label="Audio waveform"

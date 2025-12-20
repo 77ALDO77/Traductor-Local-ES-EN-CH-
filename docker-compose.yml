@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -11,7 +9,7 @@ services:
       - "7000:8000"
     environment:
       - OLLAMA_HOST=http://ollama:11434
-      - MODEL_NAME=qwen2.5:7b
+      - MODEL_NAME=qwen2.5:3b
       - CLEANUP_INTERVAL_MINUTES=10
       - FILE_RETENTION_MINUTES=30
       - LOG_LEVEL=INFO
@@ -23,7 +21,7 @@ services:
     depends_on:
       - ollama
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -37,16 +35,47 @@ services:
       - "11434:11434"
     environment:
       - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_GPU=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - OLLAMA_FLASH_ATTENTION=true
+      - OLLAMA_KEEP_ALIVE=30m
     volumes:
       - boc_ollama_data:/root/.ollama
     networks:
       - translator_network
-    healthcheck:
-      test: ["CMD-SHELL", "ollama list || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+
+  translator_engine:
+    build:
+      context: ./translator_engine
+    container_name: boc_translator_engine_v1
+    restart: always
+    ports:
+      - "9000:9000"
+    volumes:
+      - boc_whisper_data:/app/models_whisper
+      - ./translator_engine:/app
+    environment:
+      - WHISPER_MODEL_SIZE=medium
+      - WHISPER_DEVICE=cuda
+      - WHISPER_COMPUTE_TYPE=int8_float16
+      - MAX_BATCH_SIZE=16 # Reduce batch size to save VRAM
+    networks:
+      - translator_network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
 
 networks:
   translator_network:
