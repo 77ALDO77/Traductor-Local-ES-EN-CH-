@@ -25,7 +25,10 @@ RUN pip install --no-cache-dir \
     huggingface_hub \
     faster-whisper \
     soundfile \
-    python-multipart
+    faster-whisper \
+    soundfile \
+    python-multipart \
+    hf_transfer
 
 COPY . .
 
@@ -36,7 +39,11 @@ RUN mkdir -p /models/nllb
 ENV MODEL_DIR=/models/nllb \
     NMT_DEVICE=cuda \
     NMT_COMPUTE_TYPE=float16 \
-    MAX_BATCH_SIZE=32
+    NMT_DEVICE=cuda \
+    NMT_COMPUTE_TYPE=float16 \
+    MAX_BATCH_SIZE=32 \
+    HF_HUB_ENABLE_HF_TRANSFER=1 \
+    HF_HUB_DOWNLOAD_TIMEOUT=500
 RUN python downloader.py
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9000"]
