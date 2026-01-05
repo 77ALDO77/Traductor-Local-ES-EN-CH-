@@ -77,6 +77,23 @@ function handleFileSelect(e) {
 }
 
 async function processFile(file) {
+    // Limpiar archivo anterior si existe
+    if (state.uploadedFile) {
+        try {
+            await fetch(`${API_BASE}/api/documents/cleanup/${state.uploadedFile.filename}`, {
+                method: 'DELETE'
+            });
+        } catch (error) {
+            console.log('Cleanup warning:', error);
+        }
+        state.uploadedFile = null;
+
+        // Limpiar UI
+        downloadSection.classList.add('hidden');
+        downloadSection.innerHTML = '';
+        progressContainer.classList.add('hidden');
+    }
+
     // Validar extensión
     const validExtensions = ['pdf', 'docx', 'xlsx', 'doc', 'xls'];
     const ext = file.name.split('.').pop().toLowerCase();
@@ -222,7 +239,28 @@ function updateProgress(data) {
         progressBar.style.width = `${data.progress_percent}%`;
     }
     if (progressText) {
-        progressText.textContent = data.message || `${data.progress_percent}%`;
+        // Mostrar información detallada del progreso
+        const percent = data.progress_percent.toFixed(1);
+        const chunks = `${data.current_chunk}/${data.total_chunks}`;
+
+        let detailedMessage = `${percent}% - ${data.message}`;
+
+        // Agregar detalles específicos de chunks si están disponibles
+        if (data.current_chunk && data.total_chunks && data.total_chunks > 1) {
+            detailedMessage += ` (${chunks} elementos)`;
+        }
+
+        progressText.innerHTML = `
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="font-semibold">${percent}%</span>
+                    <span class="text-sm">${chunks} chunks</span>
+                </div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">
+                    ${data.message}
+                </div>
+            </div>
+        `;
     }
 }
 

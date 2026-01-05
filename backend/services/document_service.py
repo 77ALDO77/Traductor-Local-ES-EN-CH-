@@ -8,15 +8,19 @@ import os
 import asyncio
 from pathlib import Path
 from typing import Callable
+import subprocess
+
 import logging
 
 from docx import Document
 from docx.text.paragraph import Paragraph
 from openpyxl import load_workbook
+import re
 from pdf2docx import Converter
 from docx2pdf import convert as docx_to_pdf_convert
 
 from backend.services.ollama_service import translation_service
+from backend.services.pdf_translation_service import PDFTranslationService
 
 
 logger = logging.getLogger(__name__)
@@ -35,6 +39,17 @@ class DocumentService:
     
     def __init__(self):
         self.semaphore = asyncio.Semaphore(MAX_CONCURRENT)
+        
+        # Callback para el servicio de PDF
+        async def pdf_translate_callback(text: str, source_lang: str, target_lang: str) -> str:
+            result = await translation_service.translate(
+                text=text,
+                source_lang=source_lang,
+                target_lang=target_lang
+            )
+            return result["translated_text"]
+        
+        self.pdf_service = PDFTranslationService(pdf_translate_callback)
     
     @staticmethod
     def get_file_type(filename: str) -> str:
@@ -65,13 +80,46 @@ class DocumentService:
     
     def convert_docx_to_pdf(self, docx_path: Path, output_path: Path) -> Path:
         """
-        Convierte DOCX a PDF usando docx2pdf.
+        Convierte DOCX a PDF usando LibreOffice (compatible con Linux).
         Preserva el layout, imágenes y formato del documento.
         """
         try:
-            # docx2pdf.convert toma el archivo input y opcionalmente especifica output
-            docx_to_pdf_convert(str(docx_path), str(output_path))
+            # Usar LibreOffice headless para conversión en Linux
+            cmd = [
+                "soffice",
+                "--headless",
+                "--convert-to",
+                "pdf",
+                str(docx_path),
+                "--outdir",
+                str(output_path.parent)
+            ]
+            
+            subprocess.run(
+                cmd, 
+                check=True, 
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.PIPE
+            )
+            
+            # LibreOffice guarda con el mismo nombre base pero extensión .pdf
+            # Si docx_path es 'archivo.temp.docx', genera 'archivo.temp.pdf'
+            expected_output = docx_path.with_suffix('.pdf')
+            
+            if expected_output.exists():
+                if expected_output != output_path:
+                    if output_path.exists():
+                        os.remove(output_path)
+                    os.rename(expected_output, output_path)
+            else:
+                # Intento de fallback o error
+                raise FileNotFoundError(f"LibreOffice no generó el archivo esperado: {expected_output}")
+                
             return output_path
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.decode() if e.stderr else "Error desconocido de LibreOffice"
+            logger.error(f"Error de LibreOffice: {error_msg}")
+            raise RuntimeError(f"Fallo en conversión PDF: {error_msg}")
         except Exception as e:
             logger.error(f"Error convirtiendo DOCX a PDF: {e}")
             raise
@@ -113,6 +161,13 @@ class DocumentService:
             return False
         if stripped.replace(' ', '').replace('.', '').replace(',', '').isdigit():
             return False
+        
+        # No traducir líneas que son principalmente puntos/guiones (TOC leaders)
+        # Ej: "Introduction ......................... 5"
+        non_leader_chars = stripped.replace('.', '').replace('-', '').replace('_', '').replace(' ', '')
+        if len(non_leader_chars) < len(stripped) * 0.3:  # Más del 70% son leaders
+            return False
+            
         return True
     
     def _replace_paragraph_text_preserve_format(
@@ -131,9 +186,109 @@ class DocumentService:
         first_run = paragraph.runs[0]
         first_run.text = new_text
         
+        # FIX: Evitar Mojibake (texto griego/símbolos) causado por fuentes "Symbol" del PDF.
+        # pdf2docx a veces asigna la fuente Symbol al texto extraído, lo que hace que 
+        # el texto ASCII (traducido o no) se vea como caracteres griegos.
+        if first_run.font.name:
+            font_name_lower = first_run.font.name.lower()
+            if 'symbol' in font_name_lower or 'dingbats' in font_name_lower or 'wingdings' in font_name_lower:
+                first_run.font.name = 'Arial'
+        
         for run in paragraph.runs[1:]:
             run.text = ""
     
+
+
+
+    def _extract_text_structure(self, text: str) -> tuple[str, str, str]:
+        """
+        Separa el texto en (prefijo, contenido, sufijo) para preservar formato.
+        - Prefijo: Viñetas, numeración, espacios iniciales.
+        - Contenido: El texto real a traducir.
+        - Sufijo: Líneas de puntos de índice, números de página, espacios finales.
+        """
+        if not text:
+            return "", "", ""
+            
+        # 1. Detectar TOC leaders (ej: "...... 12")
+        # Regex: secuencia de puntos seguida opcionalmente de espacio y números al final
+        toc_pattern = r'(\s*[\.\-_]{3,}\s*\d+|\s*[\.\-_]{3,})\s*$'
+        suffix = ""
+        content = text
+        
+        toc_match = re.search(toc_pattern, text)
+        if toc_match:
+            suffix = toc_match.group(0)
+            content = text[:toc_match.start()]
+            
+        # 2. Detectar Prefijos (Viñetas, Números, Identación)
+        # Regex: 
+        # - Espacios iniciales
+        # - Viñetas comunes (•, -, *, etc)
+        # - Numeración (1., 1.1, A., a))
+        prefix = ""
+        
+        # Patrones comunes de inicio de lista
+        list_pattern = r'^(\s*(?:[•\-\*·◦‣]|\d+[\.\)]|[a-zA-Z][\.\)])\s+)'
+        # Patrón de solo espacios
+        space_pattern = r'^(\s+)'
+        
+        match = re.match(list_pattern, content)
+        if match:
+            prefix = match.group(1)
+            content = content[match.end():]
+        else:
+            match_space = re.match(space_pattern, content)
+            if match_space:
+                prefix = match_space.group(1)
+                content = content[match_space.end():]
+                
+        return prefix, content, suffix
+
+    def _reassemble_text(self, prefix: str, translated_content: str, suffix: str, original_content_len: int = 0) -> str:
+        """
+        Reconstruye el texto preservando la estructura original.
+        Ajusta la longitud de los 'leaders' (puntos) en el sufijo para evitar saltos de línea en índices.
+        """
+        # Limpieza básica
+        clean_content = translated_content.strip()
+        
+        # Lógica de ajuste de puntos para TOC
+        # Si el sufijo parece ser un leader (puntos seguidos de numero o nada)
+        # Regex: espacios opcionales, 3+ puntos/guiones, espacios opcionales, digito final opcional
+        if original_content_len > 0 and re.match(r'^\s*[\._-]{3,}', suffix):
+            # Calcular diferencia de longitud
+            diff = len(clean_content) - original_content_len
+            
+            # Solo ajustamos si hubo cambio significativo
+            if diff != 0:
+                # Separar los puntos del resto del sufijo (ej: numeros de pagina)
+                # Grupo 1: Espacio inicial, Grupo 2: Puntos, Grupo 3: Resto
+                match_dots = re.match(r'^(\s*)([\._-]+)(\s*.*)$', suffix, re.DOTALL)
+                if match_dots:
+                    pre_space = match_dots.group(1)
+                    dots = match_dots.group(2)
+                    rest = match_dots.group(3)
+                    
+                    current_dots_count = len(dots)
+                    char = dots[0] # El caracter usado (punto, guion, etc)
+                    
+                    # Heurística: Si texto crece, quitar puntos. Si decrece, poner puntos.
+                    # Factor 1.2 compensa ancho variable de caracteres
+                    dots_adjustment = int(diff * 1.2)
+                    
+                    new_count = current_dots_count - dots_adjustment
+                    
+                    # Seguridad: Mínimo 3 puntos y Máximo 200 (evitar loops raros)
+                    new_count = max(3, min(new_count, 200))
+                    
+                    new_dots = char * new_count
+                    suffix = f"{pre_space}{new_dots}{rest}"
+
+        return f"{prefix}{clean_content}{suffix}"
+
+    # ... existing methods ...
+
     async def translate_docx_preserving_format(
         self,
         input_path: Path,
@@ -150,30 +305,34 @@ class DocumentService:
         
         # Recopilar todos los elementos traducibles
         translatable_items = []
+        original_structures = [] # Guardar metadatos de estructura
         
+        def process_paragraph(para):
+            if self._should_translate(para.text):
+                prefix, content, suffix = self._extract_text_structure(para.text)
+                if self._should_translate(content): # Verificar de nuevo solo el contenido
+                    translatable_items.append(("paragraph", para))
+                    original_structures.append((prefix, content, suffix))
+
         # Párrafos del cuerpo principal
         for para in doc.paragraphs:
-            if self._should_translate(para.text):
-                translatable_items.append(("paragraph", para))
+            process_paragraph(para)
         
         # Tablas del cuerpo principal
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
                     for para in cell.paragraphs:
-                        if self._should_translate(para.text):
-                            translatable_items.append(("paragraph", para))
+                        process_paragraph(para)
         
         # Headers y Footers
         for section in doc.sections:
             if section.header:
                 for para in section.header.paragraphs:
-                    if self._should_translate(para.text):
-                        translatable_items.append(("paragraph", para))
+                    process_paragraph(para)
             if section.footer:
                 for para in section.footer.paragraphs:
-                    if self._should_translate(para.text):
-                        translatable_items.append(("paragraph", para))
+                    process_paragraph(para)
         
         total_items = len(translatable_items)
         
@@ -184,17 +343,35 @@ class DocumentService:
         # Procesar en batches
         for batch_start in range(0, total_items, BATCH_SIZE):
             batch_end = min(batch_start + BATCH_SIZE, total_items)
-            batch_items = translatable_items[batch_start:batch_end]
             
-            texts_to_translate = [item[1].text for item in batch_items]
-            translated_texts = await self._translate_batch(
+            # Obtener el chunk actual de items y sus estructuras
+            batch_items = translatable_items[batch_start:batch_end]
+            batch_structures = original_structures[batch_start:batch_end]
+            
+            # Solo mandamos traducir el CONTENIDO limpio (sin bullets ni números)
+            texts_to_translate = [struct[1] for struct in batch_structures]
+            
+            translated_contents = await self._translate_batch(
                 texts_to_translate, source_lang, target_lang
             )
             
             for i, (item_type, item) in enumerate(batch_items):
+                prefix, _, suffix = batch_structures[i]
+                translated_content = translated_contents[i]
+                
+                # Reensamblar con la estructura original
+                # Pasamos la longitud original para el ajuste inteligente de puntos (TOC fix)
+                original_content = batch_structures[i][1]
+                final_text = self._reassemble_text(
+                    prefix, 
+                    translated_content, 
+                    suffix, 
+                    original_content_len=len(original_content)
+                )
+                
                 if item_type == "paragraph":
                     self._replace_paragraph_text_preserve_format(
-                        item, translated_texts[i]
+                        item, final_text
                     )
             
             if progress_callback:
@@ -286,40 +463,17 @@ class DocumentService:
         file_type = self.get_file_type(input_path.name)
         
         if file_type == "pdf":
-            # 1. Convertir PDF a DOCX
-            temp_docx_path = input_path.with_suffix('.temp.docx')
+            # ENFOQUE DEFINITIVO: Traducción directa sobre PDF con fuente Liberation Sans
+            # Esto preserva el layout exacto, imágenes y número de páginas.
+            final_output_pdf = output_path.with_suffix('.pdf')
             
-            if progress_callback:
-                progress_callback(0, 100, "Convirtiendo PDF a DOCX...")
-            
-            self.convert_pdf_to_docx(input_path, temp_docx_path)
-            
-            # 2. Traducir el DOCX temporal
-            temp_translated_docx = output_path.with_stem(
-                output_path.stem + "_translated"
-            ).with_suffix('.temp_translated.docx')
-            
-            await self.translate_docx_preserving_format(
-                temp_docx_path,
-                temp_translated_docx,
+            await self.pdf_service.translate_pdf(
+                input_path,
+                final_output_pdf,
                 source_lang,
                 target_lang,
                 progress_callback
             )
-            
-            # 3. Convertir DOCX traducido de vuelta a PDF
-            final_output_pdf = output_path.with_suffix('.pdf')
-            
-            if progress_callback:
-                progress_callback(90, 100, "Convirtiendo a PDF final...")
-            
-            self.convert_docx_to_pdf(temp_translated_docx, final_output_pdf)
-            
-            # 4. Limpiar temporales
-            if temp_docx_path.exists():
-                os.remove(temp_docx_path)
-            if temp_translated_docx.exists():
-                os.remove(temp_translated_docx)
             
             return final_output_pdf, "pdf"
             
@@ -362,13 +516,17 @@ class DocumentService:
         
         try:
             if file_type == "pdf":
-                temp_path = file_path.with_suffix('.preview.docx')
-                self.convert_pdf_to_docx(file_path, temp_path)
-                doc = Document(temp_path)
-                texts = [p.text for p in doc.paragraphs if self._should_translate(p.text)]
-                stats["translatable_items"] = len(texts)
-                stats["preview_text"] = "\n".join(texts[:3])[:500]
-                os.remove(temp_path)
+                # Usar el mismo servicio de extracción que la traducción para consistencia
+                text_blocks = self.pdf_service.extract_text_blocks(file_path)
+                
+                # Filtrar bloques traducibles
+                valid_blocks = [
+                    block[2] for block in text_blocks 
+                    if block[2] and len(block[2].strip()) > MIN_TEXT_LENGTH
+                ]
+                
+                stats["translatable_items"] = len(valid_blocks)
+                stats["preview_text"] = "\n".join(valid_blocks[:3])[:500]
                 
             elif file_type == "docx":
                 doc = Document(file_path)

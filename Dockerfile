@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     libreoffice \
     dos2unix \
+    fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. INSTALAR UV (Método Infalible: Copy from image)
@@ -29,6 +30,9 @@ COPY pyproject.toml uv.lock ./
 
 # 4. Instalar dependencias
 # --frozen: usa las versiones exactas del lockfile
+# Configurar timeout de UV para redes lentas
+ENV UV_HTTP_TIMEOUT=500
+
 RUN uv sync --frozen --no-dev
 
 # 5. Copiar el código

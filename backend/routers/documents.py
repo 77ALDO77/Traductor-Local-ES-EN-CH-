@@ -93,6 +93,9 @@ async def translate_document_stream(
     input_path = doc_info["path"]
     file_type = doc_info["file_type"]
     
+    # DEBUG LOGGING
+    print(f"DEBUG: Starting translation for filename='{filename}' path='{input_path}'", flush=True)
+    
     async def generate_progress() -> AsyncGenerator[str, None]:
         start_time = time.time()
         progress_data = {"current": 0, "total": 100, "message": "Iniciando..."}
@@ -108,9 +111,18 @@ async def translate_document_stream(
             # Enviar progreso inicial
             yield f"data: {json.dumps({'status': 'processing', 'filename': filename, 'current_chunk': 0, 'total_chunks': 100, 'progress_percent': 0, 'message': 'Analizando documento...'})}\n\n"
             
-            # Generar nombre base para salida
+            # Limpiar traducciones previas del mismo archivo
             base_name = Path(filename).stem
-            output_path_base = UPLOAD_DIR / f"{base_name}_translated"
+            for old_file in UPLOAD_DIR.glob(f"{base_name}_translated_*.*"):
+                try:
+                    os.remove(old_file)
+                except:
+                    pass
+            
+            # Generar nombre ÚNICO con timestamp para evitar conflictos
+            import time as time_module
+            timestamp = int(time_module.time() * 1000)  # milisegundos
+            output_path_base = UPLOAD_DIR / f"{base_name}_translated_{timestamp}"
             
             last_progress = 0
             
