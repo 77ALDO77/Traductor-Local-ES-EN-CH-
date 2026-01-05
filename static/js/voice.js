@@ -224,7 +224,20 @@ async function startRecording() {
 
     } catch (error) {
         console.error('Error accessing microphone:', error);
-        showNotification('No se pudo acceder al micrófono', 'error');
+
+        let errorMsg = 'No se pudo acceder al micrófono.';
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            errorMsg = 'Permiso de micrófono denegado. Por favor permítelo en tu navegador.';
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+            errorMsg = 'No se encontró ningún micrófono.';
+        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+            errorMsg = 'El micrófono está siendo usado por otra aplicación.';
+        } else if (window.isSecureContext === false) {
+            errorMsg = 'Error: El acceso al micrófono requiere HTTPS o localhost.';
+        }
+
+        showNotification(errorMsg, 'error');
+        updateStatus('Error de micrófono');
     }
 }
 

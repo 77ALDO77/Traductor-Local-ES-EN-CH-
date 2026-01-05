@@ -210,24 +210,37 @@ async def voice_websocket(websocket: WebSocket):
                         continue
                     
                     # Filtro de alucinaciones conocidas de Whisper
-                    HALLUCINATIONS = [
-                        "¡Gracias por ver el vídeo!",
-                        "Thanks for watching!",
-                        "Gracias por ver el video",
-                        "Suscríbete al canal",
-                        "Subtitles by",
+                    HEADERS_HALLUCINATIONS = [
+                        "¡gracias por ver el vídeo!",
+                        "thanks for watching",
+                        "gracias por ver",
+                        "suscríbete",
+                        "subtitles by",
+                        "amara.org",
+                        "translated by",
+                        "you",
+                        "bye",
                     ]
                     
                     text_lower = text.lower().strip()
                     is_hallucination = False
-                    for h in HALLUCINATIONS:
-                        if h.lower() in text_lower:
-                             # Si es *solo* la alucinación o domina el texto, ignorar
-                             if len(text) < len(h) + 10:
-                                 is_hallucination = True
-                                 break
+                    
+                    # Filtro 1: Texto muy corto repetitivo o vacío
+                    if len(text_lower) < 2:
+                        is_hallucination = True
+                        
+                    # Filtro 2: Alucinaciones conocidas
+                    if not is_hallucination:
+                        for h in HEADERS_HALLUCINATIONS:
+                            if h in text_lower:
+                                 # Si es la alucinación exacta o domina el texto
+                                 if len(text_lower) < len(h) + 10:
+                                     is_hallucination = True
+                                     break
                     
                     if is_hallucination:
+                         # Si detectamos alucinación, NO enviamos nada y NO limpiamos buffer
+                         # Simplemente esperamos más audio
                         continue
 
                     # Enviar transcripción
@@ -235,32 +248,32 @@ async def voice_websocket(websocket: WebSocket):
                         "type": "transcription",
                         "data": {
                             "text": text,
-                            # Mostrar el idioma de origen seleccionado (no autodetección)
                             "language": src_lang,
                             "time_ms": round(trans_time, 2)
                         }
                     })
                     
-                    # Traducir si es necesario según origen/destino provistos
+                    # Traducir si es necesario
                     if src_lang != target_lang:
-                        result = await translation_service.translate(
-                            text=text,
-                            source_lang=src_lang,
-                            target_lang=target_lang
-                        )
-                        
-                        await websocket.send_json({
-                            "type": "translation",
-                            "data": {
-                                "original": text,
-                                "translated": result["translated_text"],
-                                "source_language": src_lang,
-                                "target_language": target_lang,
-                                "time_ms": result.get("processing_time_ms", 0)
-                            }
-                        })
+                        # Solo traducir si hay contenido sustancial (>3 chars)
+                        if len(text) > 3:
+                            result = await translation_service.translate(
+                                text=text,
+                                source_lang=src_lang,
+                                target_lang=target_lang
+                            )
+                            
+                            await websocket.send_json({
+                                "type": "translation",
+                                "data": {
+                                    "original": text,
+                                    "translated": result["translated_text"],
+                                    "source_language": src_lang,
+                                    "target_language": target_lang,
+                                    "time_ms": result.get("processing_time_ms", 0)
+                                }
+                            })
                     else:
-                        # Mismo idioma, no traducir
                         await websocket.send_json({
                             "type": "translation",
                             "data": {
@@ -272,11 +285,11 @@ async def voice_websocket(websocket: WebSocket):
                             }
                         })
 
-                    # 4. Verificar fin de frase para "segmentar" la conversación
-                    # Si el texto termina en puntuación fuerte y tiene cierta longitud, asumimos fin de idea.
-                    # Esto permite limpiar el buffer (para velocidad) y crear nueva burbuja en UI.
+                    # 4. Verificar fin de frase para "segmentar" con mayor tolerancia
                     stripped_text = text.strip()
-                    if len(stripped_text) > 5 and stripped_text[-1] in ".!?。！？":
+                    # AUMENTADO: Umbral de 5 a 25 caracteres para evitar cortes prematuros en "Hola."
+                    # Además requierimos puntuación final fuerte.
+                    if len(stripped_text) > 25 and stripped_text[-1] in ".!?。！？":
                         # Enviar señal de fin de segmento
                         await websocket.send_json({"type": "segment_end"})
                         

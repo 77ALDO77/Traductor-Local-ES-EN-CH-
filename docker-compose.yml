@@ -6,7 +6,7 @@ services:
     container_name: boc_translator_backend_v1
     restart: unless-stopped
     ports:
-      - "7000:8000"
+      - "8000:8000"
     environment:
       - OLLAMA_HOST=http://ollama:11434
       - MODEL_NAME=qwen2.5:3b
@@ -26,6 +26,21 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+
+  nginx:
+    image: nginx:alpine
+    container_name: boc_translator_nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - backend
+    networks:
+      - translator_network
 
   ollama:
     image: ollama/ollama:latest

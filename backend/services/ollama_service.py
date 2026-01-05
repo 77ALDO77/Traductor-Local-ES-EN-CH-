@@ -77,26 +77,25 @@ class OllamaTranslationService:
         target = lang_names.get(target_lang, target_lang)
 
         rules = [
-            "1. Provide ONLY the translation text.",
-            "2. Do NOT add notes, explanations, or quotes.",
-            "3. Maintain the original tone and formatting.",
+            f"1. TRANSLATE the text strictly from {source} to {target}.",
+            "2. Do NOT simply copy the input text.",
+            "3. Maintain original paragraph structure and line breaks.",
+            "4. Return ONLY the translated result.",
         ]
 
         if target_lang == "Chinese":
-            rules.append("4. Use Simplified Chinese characters (简体中文).")
+            rules.append("5. Use Simplified Chinese characters (简体中文).")
 
         rules_text = "\n".join(rules)
 
-        return f"""You are a professional translator engine.
-Task: Translate the content from {source} to {target}.
+        return f"""Task: Translate the following content.
 
 Rules:
 {rules_text}
 
-Content to translate:
+Content:
 {text}
-
-Translation:"""
+"""
 
     async def translate(self, text: str, source_lang: str, target_lang: str):
         """
@@ -122,8 +121,8 @@ Translation:"""
                     {
                         "role": "system",
                         "content": (
-                            f"You are a translation engine. "
-                            f"You ONLY output {target_lang} text."
+                            f"You are a translator from {source_lang} to {target_lang}. "
+                            f"You must translate the input. Do not repeat the source text."
                         ),
                     },
                     {

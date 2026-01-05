@@ -41,10 +41,14 @@ document.addEventListener('DOMContentLoaded', () => {
         radio.addEventListener('change', (e) => {
             state.targetLanguage = e.target.value;
             console.log('Target language:', state.targetLanguage);
+            handleAutoActions(); // Trigger translation on language change
         });
     });
 
-    // Contador de caracteres
+    // Temporizador para debounce
+    let debounceTimer;
+
+    // Contador de caracteres y Auto-Translate
     if (sourceTextarea && charCount) {
         sourceTextarea.addEventListener('input', () => {
             const length = sourceTextarea.value.length;
@@ -55,10 +59,88 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 charCount.classList.remove('text-red-500');
             }
+
+            // Detección y Traducción Automática
+            handleAutoActions();
         });
     }
 
-    // Botón de traducir
+    // Lógica centralizada de acciones automáticas
+    function handleAutoActions() {
+        const text = sourceTextarea.value;
+        const length = text.length;
+
+        // Detección automática de idioma
+        if (length > 5) { // Reducido umbral para detección más rápida
+            const detected = detectLanguage(text);
+            if (detected && detected !== state.sourceLanguage) {
+                state.sourceLanguage = detected;
+                updateRadioButtons('language-source', detected);
+
+                // Switch inteligente de target
+                let newTarget = state.targetLanguage;
+                // Si origen es X, asegurar que destino NO sea X
+                if (detected === state.targetLanguage) {
+                    if (detected === 'Spanish') newTarget = 'English';
+                    else if (detected === 'English') newTarget = 'Spanish';
+                    else if (detected === 'Chinese') newTarget = 'Spanish';
+                }
+
+                if (newTarget !== state.targetLanguage) {
+                    state.targetLanguage = newTarget;
+                    updateRadioButtons('language-target', newTarget);
+                }
+
+                showNotification(`Detected: ${detected} -> Translating...`, 'info');
+            }
+        }
+
+        // Traducción automática (Debounce)
+        clearTimeout(debounceTimer);
+        if (length > 0 && length <= 5000) {
+            // Indicador visual en el output antes de traducir
+            if (targetOutput && !state.isTranslating) {
+                targetOutput.style.opacity = '0.7';
+            }
+
+            debounceTimer = setTimeout(() => {
+                handleTranslate();
+            }, 800); // 800ms es un buen balance
+        }
+    }
+
+    // Funcion helper para detectar idioma
+    function detectLanguage(text) {
+        // Muestra de texto para análisis (primeros 100 chars)
+        const sample = text.slice(0, 100);
+
+        // 1. Detectar Chino (caracteres Unicode U+4E00 a U+9FFF)
+        if (/[\u4E00-\u9FFF]/.test(sample)) return 'Chinese';
+
+        // 2. Detectar Español vs Inglés (palabras funcionales comunes)
+        // Contamos ocurrencias simples
+        const esCount = (sample.match(/\b(el|la|los|las|de|que|y|en|un|una|es|por|para)\b/gi) || []).length;
+        const enCount = (sample.match(/\b(the|and|is|in|to|of|it|you|that|for|on|with)\b/gi) || []).length;
+
+        if (esCount > enCount) return 'Spanish';
+        if (enCount > esCount) return 'English';
+
+        return null; // No conclusivo
+    }
+
+    // Función helper para actualizar UI
+    function updateRadioButtons(groupName, value) {
+        document.querySelectorAll(`input[name="${groupName}"]`).forEach(radio => {
+            if (radio.value === value) {
+                radio.checked = true;
+                // Forzar actualización visual del contenedor padre (clases de Tailwind)
+                // Esto es un hack porque el CSS depende de :has(:checked) que funciona nativo, 
+                // pero a veces requiere repaint.
+            }
+        });
+    }
+
+    // Botón de traducir (ahora es opcional/manual override)
     if (translateBtn) {
         translateBtn.addEventListener('click', handleTranslate);
     }
@@ -84,12 +166,14 @@ document.addEventListener('DOMContentLoaded', () => {
  * Maneja la traducción del texto
  */
 async function handleTranslate() {
+    // Si ya está traduciendo, ignorar (a menos que debamos cancelar la anterior, pero simple es mejor aqui)
     if (state.isTranslating) return;
 
     const text = sourceTextarea?.value?.trim();
 
+    // Reset UI si está vacío
     if (!text) {
-        showNotification('Please enter text to translate', 'warning');
+        if (targetOutput) targetOutput.textContent = 'Translation will appear here...';
         return;
     }
 
@@ -99,11 +183,17 @@ async function handleTranslate() {
     }
 
     if (state.sourceLanguage === state.targetLanguage) {
-        showNotification('Source and target languages must be different', 'warning');
-        return;
+        return; // Silencioso en auto-mode
     }
 
     state.isTranslating = true;
+
+    // Feedback visual sutil y Spinner
+    if (targetOutput) {
+        targetOutput.classList.add('opacity-50'); // Dim effect
+    }
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) spinner.classList.remove('hidden');
     setTranslateButtonLoading(true);
 
     try {
@@ -129,22 +219,20 @@ async function handleTranslate() {
         // Mostrar resultado
         if (targetOutput) {
             targetOutput.textContent = result.translated_text;
-        }
-
-        // Mostrar tiempo de procesamiento
-        if (result.processing_time_ms) {
-            console.log(`Translation completed in ${result.processing_time_ms}ms`);
+            targetOutput.classList.remove('opacity-50');
+            // Ya no manipulamos altura, usamos CSS resize-y
         }
 
     } catch (error) {
         console.error('Translation error:', error);
-        showNotification(`Error: ${error.message}`, 'error');
-
+        // Solo notificar errores graves, no interrupciones menores
         if (targetOutput) {
-            targetOutput.textContent = 'Translation failed. Please try again.';
+            targetOutput.classList.remove('opacity-50');
+            targetOutput.textContent = 'Error converting text.';
         }
     } finally {
         state.isTranslating = false;
+        if (spinner) spinner.classList.add('hidden');
         setTranslateButtonLoading(false);
     }
 }
@@ -157,6 +245,7 @@ async function handlePaste() {
         const text = await navigator.clipboard.readText();
         if (sourceTextarea) {
             sourceTextarea.value = text;
+            // Disparar evento input para activar resize y traducción
             sourceTextarea.dispatchEvent(new Event('input'));
         }
     } catch (error) {
