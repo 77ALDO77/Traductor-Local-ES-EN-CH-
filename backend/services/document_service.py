@@ -14,6 +14,7 @@ import logging
 
 from docx import Document
 from docx.text.paragraph import Paragraph
+from docx.oxml.ns import qn
 from openpyxl import load_workbook
 import re
 from pdf2docx import Converter
@@ -173,7 +174,8 @@ class DocumentService:
     def _replace_paragraph_text_preserve_format(
         self, 
         paragraph: Paragraph, 
-        new_text: str
+        new_text: str,
+        target_lang: str = "Spanish"
     ) -> None:
         """
         Reemplaza el texto de un párrafo preservando el formato de los runs.
@@ -194,6 +196,50 @@ class DocumentService:
             if 'symbol' in font_name_lower or 'dingbats' in font_name_lower or 'wingdings' in font_name_lower:
                 first_run.font.name = 'Arial'
         
+        
+        # LOGICA CRITICA: Soporte para caracteres chinos
+        # Microsoft Word requiere que se defina la fuente correcta para la region "East Asia"
+        # De lo contrario, los caracteres chinos se muestran como cuadrados (tofu) o incorrectamente.
+        is_chinese = False
+        target_lower = target_lang.lower()
+        if "chinese" in target_lower or "chino" in target_lower or "mandarin" in target_lower or target_lower in ["zh", "cn", "zh-cn"]:
+            is_chinese = True
+
+        if first_run.font.name:
+            font_name_lower = first_run.font.name.lower()
+            if 'symbol' in font_name_lower or 'dingbats' in font_name_lower or 'wingdings' in font_name_lower:
+                first_run.font.name = 'Arial'
+        
+        # Forzar fuente compatible con Chino si es necesario
+        if is_chinese:
+            # Usamos "Noto Sans CJK SC" porque está garantizada en el contenedor Linux
+            # y es la mejor opción para compatibilidad cruzada en sistemas abiertos.
+            # En Windows, Word hará fallback si no la tiene.
+            font_name = "Noto Sans CJK SC"
+            
+            first_run.font.name = font_name
+            
+            # Acceso seguro a elementos XML de bajo nivel
+            r = first_run.element
+            rPr = r.get_or_add_rPr()
+            
+            # 1. Configurar Fuente EastAsia y Hint
+            rFonts = rPr.get_or_add_rFonts()
+            rFonts.set(qn('w:eastAsia'), font_name)
+            # También seteamos ascii/hAnsi para que todo use la misma fuente si es mixto
+            rFonts.set(qn('w:ascii'), font_name)
+            rFonts.set(qn('w:hAnsi'), font_name)
+            rFonts.set(qn('w:hint'), "eastAsia")
+            
+            # 2. Configurar Idioma (Lang)
+            lang = rPr.find(qn('w:lang'))
+            if lang is None:
+                lang = rPr.makeelement(qn('w:lang'))
+                rPr.append(lang)
+            
+            lang.set(qn('w:eastAsia'), 'zh-CN')
+            lang.set(qn('w:val'), 'zh-CN') # Fallback para western
+
         for run in paragraph.runs[1:]:
             run.text = ""
     
@@ -307,32 +353,36 @@ class DocumentService:
         translatable_items = []
         original_structures = [] # Guardar metadatos de estructura
         
-        def process_paragraph(para):
-            if self._should_translate(para.text):
-                prefix, content, suffix = self._extract_text_structure(para.text)
-                if self._should_translate(content): # Verificar de nuevo solo el contenido
-                    translatable_items.append(("paragraph", para))
-                    original_structures.append((prefix, content, suffix))
+        # Helper recursivo para explorar contenedores (Documento, Celdas, Headers, Footers)
+        def process_container(container):
+            # 1. Procesar párrafos del contenedor actual
+            for para in container.paragraphs:
+                if self._should_translate(para.text):
+                    prefix, content, suffix = self._extract_text_structure(para.text)
+                    if self._should_translate(content):
+                        translatable_items.append(("paragraph", para))
+                        original_structures.append((prefix, content, suffix))
+            
+            # 2. Procesar tablas (recursivo para tablas anidadas)
+            for table in container.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        process_container(cell)
 
-        # Párrafos del cuerpo principal
-        for para in doc.paragraphs:
-            process_paragraph(para)
+        # 1. Cuerpo principal
+        process_container(doc)
         
-        # Tablas del cuerpo principal
-        for table in doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    for para in cell.paragraphs:
-                        process_paragraph(para)
-        
-        # Headers y Footers
+        # 2. Headers y Footers (iterar sobre todas las secciones)
         for section in doc.sections:
+            # Headers
             if section.header:
-                for para in section.header.paragraphs:
-                    process_paragraph(para)
+                process_container(section.header)
+                # Iterar sobre headers alternativos (primera pagina, par/impar) si existen
+                # python-docx abstrae algunos, pero lo básico es section.header
+            
+            # Footers
             if section.footer:
-                for para in section.footer.paragraphs:
-                    process_paragraph(para)
+                process_container(section.footer)
         
         total_items = len(translatable_items)
         
@@ -371,7 +421,7 @@ class DocumentService:
                 
                 if item_type == "paragraph":
                     self._replace_paragraph_text_preserve_format(
-                        item, final_text
+                        item, final_text, target_lang
                     )
             
             if progress_callback:

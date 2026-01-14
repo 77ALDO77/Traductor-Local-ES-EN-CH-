@@ -120,7 +120,8 @@ class PDFTranslationService:
         self,
         original_pdf_path: Path,
         translated_blocks: List[Tuple[int, fitz.Rect, str, dict]],
-        output_path: Path
+        output_path: Path,
+        target_lang: str = "Spanish"
     ) -> Path:
         """
         Crea un nuevo PDF con los textos traducidos manteniendo el layout original.
@@ -132,6 +133,22 @@ class PDFTranslationService:
         """
         # Abrir el PDF original
         doc = fitz.open(original_pdf_path)
+        
+        # Detectar si el idioma destino es chino
+        target_lower = target_lang.lower()
+        is_chinese = "chinese" in target_lower or "chino" in target_lower or target_lower in ["zh", "cn", "zh-cn"]
+        
+        # Seleccionar fuente según idioma
+        if is_chinese:
+            # Noto Sans CJK SC soporta caracteres chinos
+            font_path = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+            # PyMuPDF requiere un nombre interno SIN ESPACIOS
+            font_name = "notocjk"
+        else:
+            font_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+            font_name = "liberation"
+        
+        has_font = Path(font_path).exists()
         
         # Organizar bloques por página
         blocks_by_page = {}
@@ -154,11 +171,6 @@ class PDFTranslationService:
             page.apply_redactions()
             
             # Insertar textos traducidos
-            # Definir fuente segura (Liberation Sans)
-            font_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
-            has_font = Path(font_path).exists()
-            
-            # Insertar textos traducidos
             for rect, text, style in blocks:
                 # Calcular tamaño de fuente
                 font_size = style["size"]
@@ -174,7 +186,7 @@ class PDFTranslationService:
                     
                     if has_font:
                         kwargs["fontfile"] = font_path
-                        kwargs["fontname"] = "Liberation"
+                        kwargs["fontname"] = font_name
                     else:
                         kwargs["fontname"] = "helv"
                     
@@ -270,7 +282,8 @@ class PDFTranslationService:
             result = self.create_translated_pdf(
                 input_path,
                 translated_blocks,
-                output_path
+                output_path,
+                target_lang
             )
             
             if progress_callback:

@@ -15,7 +15,6 @@ services:
       - LOG_LEVEL=INFO
       - ADMIN_USERNAME=admin_boc
       - ADMIN_PASSWORD=seguridad_boc_2026
-      - TZ=America/Lima
     deploy:
       resources:
         reservations:
@@ -23,6 +22,7 @@ services:
             - driver: nvidia
               count: all
               capabilities: [ gpu ]
+
     volumes:
       - boc_whisper_data:/app/models
       - boc_uploads:/app/uploads

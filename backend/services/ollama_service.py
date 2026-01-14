@@ -73,18 +73,26 @@ class OllamaTranslationService:
             "Chinese": "Simplified Chinese",
         }
 
-        source = lang_names.get(source_lang, source_lang)
-        target = lang_names.get(target_lang, target_lang)
+        # Detección robusta de Chino
+        target_lower = target_lang.lower()
+        if "chinese" in target_lower or "chino" in target_lower or "mandarin" in target_lower or target_lower in ["zh", "cn", "zh-cn"]:
+            target_lang_prompt = "Simplified Chinese"
+            is_chinese = True
+        else:
+            target_lang_prompt = lang_names.get(target_lang, target_lang)
+            is_chinese = False
 
+        source = lang_names.get(source_lang, source_lang)
+        
         rules = [
-            f"1. TRANSLATE the text strictly from {source} to {target}.",
+            f"1. TRANSLATE the text strictly from {source} to {target_lang_prompt}.",
             "2. Do NOT simply copy the input text.",
             "3. Maintain original paragraph structure and line breaks.",
             "4. Return ONLY the translated result.",
         ]
 
-        if target_lang == "Chinese":
-            rules.append("5. Use Simplified Chinese characters (简体中文).")
+        if is_chinese:
+            rules.append("5. Use Simplified Chinese characters (简体中文) ONLY.")
 
         rules_text = "\n".join(rules)
 
@@ -114,6 +122,9 @@ Content:
         prompt = self._build_translation_prompt(text, source_lang, target_lang)
         start_time = time.time()
 
+        time.sleep(0.1)  # Small delay to prevent hammering
+        print(f"DEBUG: Translating '{text[:50]}...' ({source_lang}->{target_lang})", flush=True)
+
         try:
             response = await self.client.chat(
                 model=self.model,
@@ -131,7 +142,7 @@ Content:
                     },
                 ],
                 options={
-                    "temperature": 0.3,
+                    "temperature": 0.1,  # Reduced temperature for more deterministic translation
                     "top_p": 0.9,
                     "num_predict": 1024,
                     "repeat_penalty": 1.1,
@@ -140,6 +151,7 @@ Content:
 
             processing_time = (time.time() - start_time) * 1000
             translated_text = response.message.content.strip()
+            print(f"DEBUG: Result: '{translated_text[:50]}...'", flush=True)
 
             prefixes_to_remove = [
                 "Translation:",

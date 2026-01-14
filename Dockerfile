@@ -9,14 +9,19 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
 # 1. Instalar dependencias del sistema
-# Agrego libreoffice porque vi en tus logs que lo tenías (vital para conversión de documentos en Linux)
+# Agrego libreoffice, ffmpeg, curl y fuentes CJK para soporte completo
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     libgomp1 \
     libreoffice \
+    libreoffice-java-common \
+    default-jre \
     dos2unix \
     fonts-liberation \
+    fonts-noto-cjk \
+    fonts-noto-cjk-extra \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. INSTALAR UV (Método Infalible: Copy from image)
