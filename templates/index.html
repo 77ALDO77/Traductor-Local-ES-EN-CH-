@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>BoC Translator - AI Translation Dashboard</title>
+    <link rel="icon" type="image/png" href="/static/images/icon-boc-red.png">
     <!-- OFFLINE MODE: Local Tailwind -->
     <script src="/static/vendor/tailwindcss.js"></script>
     <script>
@@ -14,18 +15,12 @@
                 extend: {
                     colors: {
                         "primary": "#a61c2e",
-                        "background-light": "#f8f6f6",
-                        "background-dark": "#201214",
+                        "background-light": "#f5f5f5",
+                        "background-dark": "#1a1a1a",
+                        "container-light": "#ffffff",
+                        "container-dark": "#2c2c2c",
                     },
-                    fontFamily: {
-                        "display": ["system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"]
-                    },
-                    borderRadius: {
-                        "DEFAULT": "0.25rem",
-                        "lg": "0.5rem",
-                        "xl": "0.75rem",
-                        "full": "9999px"
-                    },
+                    fontFamily: { "display": ["Manrope", "sans-serif"] },
                 },
             },
         }
@@ -33,21 +28,14 @@
 </head>
 
 <body class="font-display bg-background-light dark:bg-background-dark">
-    <div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
+    <div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
         <div class="flex min-h-screen">
             <aside
-                class="w-64 flex-shrink-0 bg-white dark:bg-background-dark dark:border-r dark:border-white/10 shadow-sm">
-                <div class="flex h-full flex-col justify-between p-4">
+                class="w-64 flex-shrink-0 bg-container-light dark:bg-background-dark dark:border-r dark:border-white/10 shadow-sm">
+                <div class="flex h-full flex-col p-4">
                     <div class="flex flex-col gap-8">
                         <div class="flex items-center gap-3 px-3">
-                            <div class="bg-primary rounded-lg p-2 flex items-center justify-center">
-                                <!-- Icon: Translate -->
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
-                                    class="w-6 h-6 text-white">
-                                    <path
-                                        d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0014.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z" />
-                                </svg>
-                            </div>
+                            <img src="/static/images/icon-boc-white.png" class="bg-primary rounded-lg p-1.5 h-10 w-10">
                             <div class="flex flex-col">
                                 <h1 class="text-[#171212] dark:text-white text-lg font-bold leading-normal">BoC
                                     Translator</h1>
@@ -78,7 +66,6 @@
                                 <p class="text-[#171212] dark:text-gray-300 text-sm font-medium leading-normal">Document
                                     Translator</p>
                             </a>
-
                             <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5"
                                 href="/voice">
                                 <!-- Icon: Mic -->
@@ -91,29 +78,39 @@
                                 <p class="text-[#171212] dark:text-gray-300 text-sm font-medium leading-normal">Voice
                                     Translation</p>
                             </a>
+
+                            <div class="h-px bg-gray-200 dark:bg-white/10 my-2 mx-3"></div>
+
+                            <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5"
+                                href="/login">
+                                <!-- Icon: Admin -->
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                                    class="w-5 h-5 text-[#171212] dark:text-gray-300">
+                                    <path fill-rule="evenodd"
+                                        d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 01.67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 01-.671-1.34l.041-.022zM12 9a.75.75 0 100-1.5.75.75 0 000 1.5z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                                <p class="text-[#171212] dark:text-gray-300 text-sm font-medium leading-normal">Audit
+                                    Access
+                                </p>
+                            </a>
                         </nav>
                     </div>
                 </div>
             </aside>
+
+            <!-- Main Content -->
             <main class="flex-1 p-8">
-                <div class="flex flex-col gap-8 max-w-7xl mx-auto">
-                    <div class="flex flex-wrap justify-between gap-3">
-                        <div class="flex min-w-72 flex-col gap-2">
-                            <p
-                                class="text-[#171212] dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">
-                                Text Translation</p>
-                            <p class="text-[#866569] dark:text-gray-400 text-base font-normal leading-normal">Translate
-                                text between languages with high accuracy.</p>
-                        </div>
-                        <button id="translate-btn"
-                            class="hidden items-center justify-center gap-2 h-12 px-6 bg-primary text-white font-medium rounded-lg shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                            <span>Translate</span>
-                        </button>
+                <div class="flex flex-col gap-8 max-w-5xl mx-auto">
+                    <div class="flex flex-col gap-2">
+                        <h1 class="text-gray-900 dark:text-white text-3xl font-bold">Text Translation</h1>
+                        <p class="text-gray-600 dark:text-gray-400 text-base">Translate text between languages with high
+                            accuracy.</p>
                     </div>
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <!-- SOURCE PANEL -->
                         <div
-                            class="flex flex-col gap-4 bg-white dark:bg-background-dark dark:border dark:border-white/10 p-6 rounded-xl shadow-sm">
+                            class="flex flex-col gap-4 bg-container-light dark:bg-container-dark dark:border dark:border-white/10 p-6 rounded-xl shadow-sm">
                             <div
                                 class="flex h-10 w-full items-center justify-center rounded-lg bg-background-light dark:bg-black/20 p-1">
                                 <label
@@ -138,7 +135,8 @@
                                     class="form-input flex w-full min-w-0 flex-1 resize-y rounded-lg text-[#171212] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-[#e5dcdd] dark:border-white/20 bg-white dark:bg-background-dark focus:border-primary min-h-[300px] placeholder:text-[#866569] dark:placeholder:text-gray-500 p-4 text-base font-normal leading-relaxed"
                                     placeholder="Enter text to translate..."></textarea>
                                 <span id="char-count"
-                                    class="text-xs text-[#866569] dark:text-gray-500 pt-2 text-right">0 / 5000</span>
+                                    class="text-xs text-[#866569] dark:text-gray-500 pt-2 text-right">0 /
+                                    5000</span>
                             </div>
                             <div class="flex flex-wrap justify-start gap-4">
                                 <button id="paste-btn"
@@ -155,7 +153,7 @@
                         </div>
                         <!-- TARGET PANEL -->
                         <div
-                            class="flex flex-col gap-4 bg-white dark:bg-background-dark dark:border dark:border-white/10 p-6 rounded-xl shadow-sm relative">
+                            class="flex flex-col gap-4 bg-container-light dark:bg-container-dark dark:border dark:border-white/10 p-6 rounded-xl shadow-sm relative">
                             <!-- Spinner Overlay -->
                             <div id="loading-spinner" class="hidden absolute top-6 right-6 z-10">
                                 <svg class="animate-spin h-6 w-6 text-primary" xmlns="http://www.w3.org/2000/svg"

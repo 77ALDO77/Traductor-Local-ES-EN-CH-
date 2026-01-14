@@ -13,7 +13,7 @@ const state = {
 };
 
 // Elementos DOM
-let dropZone, fileInput, browseBtn, translateBtn, progressContainer, progressBar, progressText, downloadSection;
+let dropZone, fileInput, browseBtn, translateBtn, cancelBtn, progressContainer, progressBar, progressText, downloadSection;
 
 document.addEventListener('DOMContentLoaded', () => {
     // Elementos
@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput = document.getElementById('file-input');
     browseBtn = document.getElementById('browse-btn');
     translateBtn = document.getElementById('translate-btn');
+    cancelBtn = document.getElementById('cancel-btn');
     progressContainer = document.getElementById('progress-container');
     progressBar = document.getElementById('progress-bar');
     progressText = document.getElementById('progress-text');
@@ -30,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     browseBtn?.addEventListener('click', () => fileInput?.click());
     fileInput?.addEventListener('change', handleFileSelect);
     translateBtn?.addEventListener('click', handleTranslate);
+    cancelBtn?.addEventListener('click', handleCancel);
 
     // Drag & Drop
     if (dropZone) {
@@ -162,9 +164,12 @@ function showPreview(text) {
     const previewContainer = document.getElementById('preview-container');
     if (previewContainer) {
         previewContainer.innerHTML = `
-            <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preview:</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">${text}</p>
+            <div class="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
+                <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Document Preview</h3>
+                <div class="bg-white text-gray-800 p-8 rounded shadow-sm border border-gray-300 font-serif leading-relaxed text-sm h-64 overflow-y-auto w-full max-w-2xl mx-auto">
+                    ${text.split('\n').map(line => `<p class="mb-2 last:mb-0">${line}</p>`).join('')}
+                </div>
+                <p class="text-xs text-center text-gray-400 mt-2">Preview only shows the first few paragraphs.</p>
             </div>
         `;
         previewContainer.classList.remove('hidden');
@@ -181,6 +186,10 @@ async function handleTranslate() {
 
     state.isTranslating = true;
     translateBtn.disabled = true;
+    if (cancelBtn) {
+        cancelBtn.classList.remove('hidden');
+        cancelBtn.disabled = false;
+    }
     showProgress(true);
 
     const formData = new FormData();
@@ -225,6 +234,35 @@ async function handleTranslate() {
     } finally {
         state.isTranslating = false;
         translateBtn.disabled = false;
+        if (cancelBtn) {
+            cancelBtn.classList.add('hidden');
+            cancelBtn.disabled = true;
+        }
+    }
+}
+
+async function handleCancel() {
+    if (!state.uploadedFile) return;
+
+    if (confirm('¿Estás seguro de que quieres cancelar la traducción?')) {
+        try {
+            cancelBtn.disabled = true;
+            showNotification('Cancelando traducción...', 'info');
+
+            const response = await fetch(`${API_BASE}/api/documents/cancel/${state.uploadedFile.filename}`, {
+                method: 'POST'
+            });
+
+            if (!response.ok) {
+                // Si falla (ej: 404 porque ya terminó), no es crítico
+                console.warn('Cancel request failed', await response.text());
+            } else {
+                showNotification('Solicitud de cancelación enviada.', 'success');
+            }
+        } catch (error) {
+            console.error('Error cancelling:', error);
+            showNotification('Error al cancelar', 'error');
+        }
     }
 }
 
@@ -235,32 +273,65 @@ function showProgress(show) {
 }
 
 function updateProgress(data) {
-    if (progressBar) {
-        progressBar.style.width = `${data.progress_percent}%`;
+    // 1. Actualizar barra y texto porcentual
+    if (progressBar) progressBar.style.width = `${data.progress_percent}%`;
+
+    const percentText = document.getElementById('progress-percent-text');
+    if (percentText) percentText.textContent = `${Math.round(data.progress_percent)}%`;
+
+    // 2. Lógica de pasos (Stepper)
+    const steps = [
+        document.getElementById('step-1'),
+        document.getElementById('step-2'),
+        document.getElementById('step-3')
+    ];
+
+    // Determinar paso actual basado en progreso
+    let currentStepIndex = 0; // Análisis
+    if (data.progress_percent > 10 && data.progress_percent < 90) currentStepIndex = 1; // Traducción
+    if (data.progress_percent >= 90) currentStepIndex = 2; // Generación
+
+    // Estilos activo/inactivo
+    const activeClass = ['bg-primary/10', 'text-primary', 'font-bold', 'border', 'border-primary/20'];
+    const inactiveClass = ['bg-gray-100', 'dark:bg-gray-800', 'text-gray-400'];
+
+    if (steps[0]) {
+        steps.forEach((el, index) => {
+            // Limpiar clases previas
+            el.className = 'p-2 rounded transition-colors';
+            if (index === currentStepIndex) {
+                el.classList.add(...activeClass);
+            } else {
+                el.classList.add(...inactiveClass);
+            }
+        });
     }
-    if (progressText) {
-        // Mostrar información detallada del progreso
-        const percent = data.progress_percent.toFixed(1);
-        const chunks = `${data.current_chunk}/${data.total_chunks}`;
 
-        let detailedMessage = `${percent}% - ${data.message}`;
+    // 3. Actualizar Textos de Estado
+    const statusTitle = document.getElementById('progress-status-title');
+    const statusDetail = document.getElementById('progress-detail');
 
-        // Agregar detalles específicos de chunks si están disponibles
-        if (data.current_chunk && data.total_chunks && data.total_chunks > 1) {
-            detailedMessage += ` (${chunks} elementos)`;
+    if (statusTitle) {
+        const titles = ["Analizando Documento", "Traduciendo Contenido", "Finalizando Documento"];
+        statusTitle.textContent = titles[currentStepIndex];
+    }
+
+    if (statusDetail) {
+        if (data.total_chunks > 0 && currentStepIndex === 1) {
+            statusDetail.textContent = `${data.message} (${data.current_chunk}/${data.total_chunks} bloques)`;
+        } else {
+            statusDetail.textContent = data.message;
         }
+    }
 
-        progressText.innerHTML = `
-            <div class="space-y-2">
-                <div class="flex justify-between items-center">
-                    <span class="font-semibold">${percent}%</span>
-                    <span class="text-sm">${chunks} chunks</span>
-                </div>
-                <div class="text-sm text-gray-600 dark:text-gray-400">
-                    ${data.message}
-                </div>
-            </div>
-        `;
+    // 4. Agregar a la consola de logs
+    const logContainer = document.getElementById('progress-log');
+    if (logContainer) {
+        const logEntry = document.createElement('div');
+        logEntry.className = "mb-1 border-b border-black/5 dark:border-white/5 pb-1 last:border-0";
+        logEntry.innerHTML = `<span class="opacity-50 text-[10px] mr-2">[${new Date().toLocaleTimeString()}]</span><span>${data.message}</span>`;
+        logContainer.appendChild(logEntry);
+        logContainer.scrollTop = logContainer.scrollHeight;
     }
 }
 

@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>BoC Translator - Voice Translation</title>
+    <link rel="icon" type="image/png" href="/static/images/icon-boc-red.png">
     <!-- OFFLINE MODE: Local Tailwind -->
     <script src="/static/vendor/tailwindcss.js"></script>
     <script>
@@ -60,14 +61,7 @@
                 <div class="flex h-full flex-col justify-between p-4">
                     <div class="flex flex-col gap-8">
                         <div class="flex items-center gap-3 px-3">
-                            <div class="bg-primary rounded-lg p-2 flex items-center justify-center">
-                                <!-- Icon: Translate -->
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
-                                    class="w-6 h-6 text-white">
-                                    <path
-                                        d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0014.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z" />
-                                </svg>
-                            </div>
+                            <img src="/static/images/icon-boc-white.png" class="bg-primary rounded-lg p-1.5 h-10 w-10">
                             <div class="flex flex-col">
                                 <h1 class="text-[#171212] dark:text-white text-lg font-bold leading-normal">BoC
                                     Translator</h1>
@@ -110,6 +104,21 @@
                                 </svg>
                                 <p class="text-primary text-sm font-medium leading-normal">Voice Translation</p>
                             </a>
+
+                            <div class="h-px bg-gray-200 dark:bg-white/10 my-2 mx-3"></div>
+
+                            <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5"
+                                href="/login">
+                                <!-- Icon: Admin -->
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                                    class="w-5 h-5 text-[#171212] dark:text-gray-300">
+                                    <path fill-rule="evenodd"
+                                        d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 01.67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 01-.671-1.34l.041-.022zM12 9a.75.75 0 100-1.5.75.75 0 000 1.5z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                                <p class="text-[#171212] dark:text-gray-300 text-sm font-medium leading-normal">Audit
+                                    Access</p>
+                            </a>
                         </nav>
                     </div>
                 </div>
@@ -119,12 +128,10 @@
             <main class="flex-1 p-8 bg-background-light dark:bg-background-dark">
                 <div class="flex flex-col gap-6 max-w-4xl mx-auto">
                     <div class="flex flex-wrap justify-between gap-3">
-                        <div class="flex min-w-72 flex-col gap-2">
-                            <p
-                                class="text-[#171212] dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">
-                                Voice Translation</p>
-                            <p class="text-[#866569] dark:text-gray-400 text-base font-normal leading-normal">Real-time
-                                voice translation for seamless conversations.</p>
+                        <div class="flex flex-col gap-2">
+                            <h1 class="text-gray-900 dark:text-white text-3xl font-bold">Voice Translation</h1>
+                            <p class="text-gray-600 dark:text-gray-400 text-base">Real-time voice translation for
+                                seamless conversations.</p>
                         </div>
                     </div>
 

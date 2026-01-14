@@ -18,12 +18,17 @@ from backend.schemas.documents import (
     FileType
 )
 from backend.services.document_service import document_service, UPLOAD_DIR
+from backend.services.audit_service import audit_service
+from backend.utils import secure_wipe_and_delete
+
 
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
 
 # Almacenamiento temporal de documentos
 uploaded_documents: dict[str, dict] = {}
+# Almacenamiento de tareas activas para cancelación
+active_tasks: dict[str, asyncio.Task] = {}
 
 
 @router.post("/upload", response_model=DocumentUploadResponse)
@@ -63,8 +68,12 @@ async def upload_document(file: UploadFile = File(...)):
         "stats": stats
     }
     
-    preview = stats.get("preview_text", "")[:500]
-    if len(stats.get("preview_text", "")) > 500:
+    # AUDIT LOG
+    audit_service.log_event("UPLOAD", file.filename, "SUCCESS", f"Size: {file_size} bytes")
+
+    
+    preview = stats.get("preview_text", "")[:2000]
+    if len(stats.get("preview_text", "")) > 2000:
         preview += "..."
     
     return DocumentUploadResponse(
@@ -111,6 +120,10 @@ async def translate_document_stream(
             # Enviar progreso inicial
             yield f"data: {json.dumps({'status': 'processing', 'filename': filename, 'current_chunk': 0, 'total_chunks': 100, 'progress_percent': 0, 'message': 'Analizando documento...'})}\n\n"
             
+            # AUDIT LOG
+            audit_service.log_event("TRANSLATE_START", filename, "STARTED", f"{source_language} -> {target_language}")
+
+            
             # Limpiar traducciones previas del mismo archivo
             base_name = Path(filename).stem
             for old_file in UPLOAD_DIR.glob(f"{base_name}_translated_*.*"):
@@ -138,6 +151,7 @@ async def translate_document_stream(
             
             # Ejecutar traducción
             task = asyncio.create_task(translate_with_progress())
+            active_tasks[filename] = task
             
             while not task.done():
                 await asyncio.sleep(0.5)
@@ -184,6 +198,10 @@ async def translate_document_stream(
             }
             yield f"data: {json.dumps(final_response)}\n\n"
             
+            # AUDIT LOG
+            audit_service.log_event("TRANSLATE_END", filename, "COMPLETED", f"Output: {output_filename}")
+
+            
         except Exception as e:
             error_response = {
                 "status": "error",
@@ -194,6 +212,14 @@ async def translate_document_stream(
                 "message": f"Error: {str(e)}"
             }
             yield f"data: {json.dumps(error_response)}\n\n"
+            
+            # AUDIT LOG
+            audit_service.log_event("TRANSLATE_ERROR", filename, "FAILED", str(e))
+
+    
+            # Clean up task registry
+            if filename in active_tasks:
+                del active_tasks[filename]
     
     return StreamingResponse(
         generate_progress(),
@@ -201,6 +227,7 @@ async def translate_document_stream(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Critical for Nginx to stream properly
         }
     )
 
@@ -235,14 +262,31 @@ async def cleanup_document(filename: str):
     if filename in uploaded_documents:
         original_path = uploaded_documents[filename]["path"]
         if original_path.exists():
-            os.remove(original_path)
+            secure_wipe_and_delete(original_path)
         del uploaded_documents[filename]
     
-    # Eliminar traducido si existe
+    # Eliminar traducido si existe (con soporte para timestamps)
     base_name = Path(filename).stem
-    for ext in ['.pdf', '.docx', '.xlsx', '.txt']:
-        translated_path = UPLOAD_DIR / f"{base_name}_translated{ext}"
-        if translated_path.exists():
-            os.remove(translated_path)
+    # Busca cualquier archivo que empiece con "nombre_translated"
+    for translated_path in UPLOAD_DIR.glob(f"{base_name}_translated*"):
+        secure_wipe_and_delete(translated_path)
+            
+    # AUDIT LOG
+    audit_service.log_event("DELETE", filename, "WIPED", "Secure delete executed")
+    
+    
+    # AUDIT LOG
+    audit_service.log_event("DELETE", filename, "WIPED", "Secure delete executed")
     
     return {"message": "Archivos eliminados"}
+
+
+@router.post("/cancel/{filename}")
+async def cancel_translation(filename: str):
+    """Cancela una tarea de traducción activa."""
+    if filename in active_tasks:
+        task = active_tasks[filename]
+        task.cancel()
+        return {"message": "Traducción cancelada"}
+    
+    raise HTTPException(status_code=404, detail="No hay traducción activa para este archivo")

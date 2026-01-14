@@ -10,12 +10,25 @@ services:
     environment:
       - OLLAMA_HOST=http://ollama:11434
       - MODEL_NAME=qwen2.5:3b
-      - CLEANUP_INTERVAL_MINUTES=10
-      - FILE_RETENTION_MINUTES=30
+      - CLEANUP_INTERVAL_MINUTES=60
+      - FILE_RETENTION_MINUTES=1440
       - LOG_LEVEL=INFO
+      - ADMIN_USERNAME=admin_boc
+      - ADMIN_PASSWORD=seguridad_boc_2026
+      - TZ=America/Lima
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
     volumes:
       - boc_whisper_data:/app/models
       - boc_uploads:/app/uploads
+      - ./static:/app/static
+      - ./templates:/app/templates
+      - ./backend:/app/backend
     networks:
       - translator_network
     depends_on:
@@ -54,7 +67,10 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - OLLAMA_FLASH_ATTENTION=true
-      - OLLAMA_KEEP_ALIVE=30m
+      - OLLAMA_KEEP_ALIVE=5m
+      - OLLAMA_NUM_PARALLEL=4
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - TZ=America/Lima
     volumes:
       - boc_ollama_data:/root/.ollama
     networks:
@@ -81,7 +97,10 @@ services:
       - WHISPER_MODEL_SIZE=medium
       - WHISPER_DEVICE=cuda
       - WHISPER_COMPUTE_TYPE=int8_float16
-      - MAX_BATCH_SIZE=16 # Reduce batch size to save VRAM
+      - NMT_DEVICE=cuda
+      - NMT_COMPUTE_TYPE=float16
+      - MAX_BATCH_SIZE=32
+      - TZ=America/Lima
     networks:
       - translator_network
     deploy:

@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>BoC Translator - Document Translator</title>
+    <link rel="icon" type="image/png" href="/static/images/icon-boc-red.png">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
         rel="stylesheet" />
@@ -52,9 +53,7 @@
                 <div class="flex h-full flex-col justify-between p-4">
                     <div class="flex flex-col gap-8">
                         <div class="flex items-center gap-3 px-3 py-2">
-                            <div class="bg-primary rounded-lg p-2 flex items-center justify-center">
-                                <span class="material-symbols-outlined text-white text-2xl">translate</span>
-                            </div>
+                            <img src="/static/images/icon-boc-white.png" class="bg-primary rounded-lg p-1.5 h-10 w-10">
                             <div class="flex flex-col">
                                 <h1 class="text-gray-900 dark:text-white text-lg font-bold">BoC Translator</h1>
                                 <p class="text-gray-500 dark:text-gray-400 text-sm">Bank of China</p>
@@ -76,6 +75,15 @@
                                 href="/voice">
                                 <span class="material-symbols-outlined text-gray-600 dark:text-gray-300">mic</span>
                                 <p class="text-gray-600 dark:text-gray-300 text-sm font-medium">Voice Translation</p>
+                            </a>
+
+                            <div class="h-px bg-gray-200 dark:bg-white/10 my-2 mx-3"></div>
+
+                            <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5"
+                                href="/login">
+                                <span
+                                    class="material-symbols-outlined text-gray-600 dark:text-gray-300">admin_panel_settings</span>
+                                <p class="text-gray-600 dark:text-gray-300 text-sm font-medium">Audit Access</p>
                             </a>
                         </nav>
                     </div>
@@ -159,33 +167,66 @@
                         </div>
                     </div>
 
-                    <!-- Progress Bar -->
-                    <div id="progress-container" class="hidden">
-                        <div class="bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
-                            <div id="progress-bar" class="bg-primary h-full transition-all duration-300"
-                                style="width: 0%"></div>
+                    <!-- Detailed Progress UI -->
+                    <div id="progress-container" class="hidden space-y-4">
+                        <div class="flex justify-between items-end">
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-900 dark:text-white" id="progress-status-title">
+                                    Iniciando...</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400" id="progress-detail">Preparando
+                                    motor de traducción</p>
+                            </div>
+                            <span class="text-2xl font-bold text-primary" id="progress-percent-text">0%</span>
                         </div>
-                        <p id="progress-text" class="text-sm text-gray-600 dark:text-gray-400 mt-2 text-center">
-                            Preparing...</p>
+
+                        <div class="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden shadow-inner">
+                            <div id="progress-bar"
+                                class="h-full bg-primary transition-all duration-300 ease-out relative overflow-hidden"
+                                style="width: 0%">
+                                <div
+                                    class="absolute top-0 left-0 bottom-0 right-0 w-full h-full bg-white/20 animate-pulse">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 text-center text-xs mt-2">
+                            <div id="step-1"
+                                class="p-2 rounded bg-gray-100 dark:bg-gray-800 text-gray-400 transition-colors">1.
+                                Análisis</div>
+                            <div id="step-2"
+                                class="p-2 rounded bg-gray-100 dark:bg-gray-800 text-gray-400 transition-colors">2.
+                                Traducción</div>
+                            <div id="step-3"
+                                class="p-2 rounded bg-gray-100 dark:bg-gray-800 text-gray-400 transition-colors">3.
+                                Generación</div>
+                        </div>
+
+                        <div class="bg-black/5 dark:bg-white/5 p-3 rounded text-xs font-mono text-gray-600 dark:text-gray-400 h-24 overflow-y-auto border border-black/5 dark:border-white/5"
+                            id="progress-log">
+                            <div class="opacity-50">> Esperando inicio...</div>
+                        </div>
                     </div>
 
                     <!-- Download Section -->
                     <div id="download-section" class="hidden text-center"></div>
 
                     <!-- Translate Button -->
-                    <div class="flex justify-end pt-4">
+                    <div class="flex justify-end gap-4 pt-4">
                         <button id="translate-btn" disabled
                             class="flex items-center justify-center gap-2 h-12 px-8 bg-primary text-white font-medium rounded-lg shadow-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <span class="material-symbols-outlined">translate</span>
                             <span>Translate Document</span>
                         </button>
+                        <button id="cancel-btn" disabled
+                            class="hidden items-center justify-center gap-2 h-12 px-8 bg-red-600 text-white font-medium rounded-lg shadow-lg hover:bg-red-700 transition-colors">
+                            <span class="material-symbols-outlined">cancel</span>
+                            <span>Cancel</span>
+                        </button>
                     </div>
                 </div>
-            </main>
         </div>
-    </div>
 
-    <script src="/static/js/documents.js?v=2"></script>
+        <script src="/static/js/documents.js?v=2"></script>
 </body>
 
 </html>

@@ -11,7 +11,12 @@ TOKENIZER_DIR = os.path.join(MODEL_DIR, "tokenizer")
 print(f"Descargando modelo CT2: {ct2_repo} → {MODEL_DIR}")
 snapshot_download(repo_id=ct2_repo, local_dir=MODEL_DIR)
 
-print(f"Descargando tokenizer: {tok_repo} → {TOKENIZER_DIR}")
-snapshot_download(repo_id=tok_repo, local_dir=TOKENIZER_DIR)
+print(f"Descargando tokenizer (SOLO CONFIG): {tok_repo} → {TOKENIZER_DIR}")
+# [OPTIMIZACIÓN] Usar allow_patterns para descargar solo ~5MB en lugar de 2.5GB
+snapshot_download(
+    repo_id=tok_repo, 
+    local_dir=TOKENIZER_DIR,
+    allow_patterns=["*.json", "*.model", "*.txt"]
+)
 
 print("Descarga completada.")

@@ -82,7 +82,7 @@ class PDFTranslationService:
         total = len(text_blocks)
         translated_blocks = []
         
-        # Procesar en batches pequeños
+        # Procesar en batches ajustados a la concurrencia de Ollama
         batch_size = 5
         
         for i in range(0, total, batch_size):

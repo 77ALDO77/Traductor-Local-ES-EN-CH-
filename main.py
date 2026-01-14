@@ -16,7 +16,8 @@ from fastapi.staticfiles import StaticFiles
 from ollama import AsyncClient
 
 # Importar routers
-from backend.routers import translation, documents, voice
+from backend.routers import translation, documents, voice, admin
+
 
 
 # Configurar logging
@@ -137,6 +138,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(translation.router)
 app.include_router(documents.router)
 app.include_router(voice.router)
+app.include_router(admin.router)
+
 
 
 @app.get("/")
@@ -155,6 +158,19 @@ async def documents_page():
 async def voice_page():
     """Sirve la interfaz de traducción por voz."""
     return FileResponse("templates/voice.html")
+
+
+@app.get("/login")
+async def login_page():
+    """Pagina de login para auditoría."""
+    return FileResponse("templates/login.html")
+
+
+@app.get("/admin/auditoria")
+async def admin_audit_page():
+    """Pagina de logs de auditoría."""
+    return FileResponse("templates/admin_audit.html")
+
 
 
 @app.get("/health")

@@ -12,6 +12,7 @@ import soundfile as sf
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from faster_whisper import WhisperModel
+import gc
 
 app = FastAPI()
 
@@ -80,9 +81,13 @@ def _segment_text(text: str) -> List[str]:
 
 def _prepare_inputs(sentences: List[str], src_code: str) -> List[List[str]]:
     inputs = []
+    # Set the source language for the tokenizer
+    if hasattr(tokenizer, "src_lang"):
+        tokenizer.src_lang = src_code
+        
     for s in sentences:
-        # Indicamos explicitamente el idioma fuente al tokenizer
-        tokenized = tokenizer.convert_ids_to_tokens(tokenizer.encode(s, src_lang=src_code))
+        # Encode without src_lang kwarg
+        tokenized = tokenizer.convert_ids_to_tokens(tokenizer.encode(s))
         inputs.append(tokenized)
     return inputs
 
@@ -213,12 +218,68 @@ async def transcribe(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        # Cleanup
-        if tmp_path and os.path.exists(tmp_path):
-            os.remove(tmp_path)
-        if wav_path and os.path.exists(wav_path) and wav_path != tmp_path:
-            os.remove(wav_path)
+
+# --- System & Helper Endpoints ---
+
+def _get_gpu_status():
+    """Obtiene estado de GPU usando nvidia-smi."""
+    try:
+        # Query total and used memory
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.total,memory.used,utilization.gpu", "--format=csv,nounits,noheader"],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            lines = result.stdout.strip().split('\n')
+            if lines:
+                total, used, util = lines[0].split(',')
+                return {
+                    "vram_total_mb": int(total),
+                    "vram_used_mb": int(used),
+                    "gpu_util_percent": int(util)
+                }
+    except Exception as e:
+        print(f"Error reading GPU stats: {e}")
+    return None
+
+@app.get("/status")
+def get_status():
+    """Retorna estado del sistema y modelos cargados."""
+    gpu_stats = _get_gpu_status()
+    
+    # RAM usage (simple approximation using psutil if available or /proc/meminfo)
+    ram_stats = {"percent": 0, "used_gb": 0, "total_gb": 0}
+    try:
+        import psutil
+        mem = psutil.virtual_memory()
+        ram_stats = {
+            "percent": mem.percent,
+            "used_gb": round(mem.used / (1024**3), 2),
+            "total_gb": round(mem.total / (1024**3), 2)
+        }
+    except ImportError:
+        pass
+
+    return {
+        "gpu": gpu_stats,
+        "ram": ram_stats,
+        "loaded_models": {
+            "nllb": True, # Always loaded in this architecture
+            "whisper": whisper_model is not None
+        }
+    }
+
+@app.post("/cleanup")
+def cleanup_resources():
+    """Fuerza la liberación de memoria (GC)."""
+    global whisper_model
+    
+    # Force GC
+    gc.collect()
+    
+    # CTranslate2 manages its own memory. We rely on GC.
+    
+    return {"status": "cleaned", "message": "Memory cleanup triggered (GC)"}
 
 @app.post("/transcribe_chunk")
 async def transcribe_chunk(

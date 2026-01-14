@@ -31,7 +31,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 # Configuración de batching
 BATCH_SIZE = 5
 MIN_TEXT_LENGTH = 2
-MAX_CONCURRENT = 3
+MAX_CONCURRENT = 4  # Ajustado a OLLAMA_NUM_PARALLEL para evitar cuellos de botella
 
 
 class DocumentService:
@@ -526,7 +526,7 @@ class DocumentService:
                 ]
                 
                 stats["translatable_items"] = len(valid_blocks)
-                stats["preview_text"] = "\n".join(valid_blocks[:3])[:500]
+                stats["preview_text"] = "\n".join(valid_blocks[:8])[:2000]
                 
             elif file_type == "docx":
                 doc = Document(file_path)
@@ -538,7 +538,7 @@ class DocumentService:
                                 if self._should_translate(para.text):
                                     texts.append(para.text)
                 stats["translatable_items"] = len(texts)
-                stats["preview_text"] = "\n".join(texts[:3])[:500]
+                stats["preview_text"] = "\n".join(texts[:8])[:2000]
                 
             elif file_type == "xlsx":
                 wb = load_workbook(file_path, read_only=True)
@@ -550,7 +550,7 @@ class DocumentService:
                                 texts.append(cell)
                 wb.close()
                 stats["translatable_items"] = len(texts)
-                stats["preview_text"] = "\n".join(texts[:5])[:500]
+                stats["preview_text"] = "\n".join(texts[:10])[:2000]
                 
         except Exception as e:
             logger.error(f"Error obteniendo estadísticas: {e}")

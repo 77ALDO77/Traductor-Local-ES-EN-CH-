@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>BoC Translator - Admin Dashboard</title>
+    <link rel="icon" type="image/png" href="/static/images/icon-boc-red.png">
+    <script src="/static/vendor/tailwindcss.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#a61c2e",
+                        "background-light": "#f5f5f5",
+                        "background-dark": "#1a1a1a",
+                        "container-light": "#ffffff",
+                        "container-dark": "#2c2c2c",
+                    },
+                    fontFamily: { "display": ["Manrope", "sans-serif"] },
+                },
+            },
+        }
+    </script>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        /* Active state for Admin Sidebar */
+        .nav-item.active {
+            background-color: rgba(166, 28, 46, 0.1);
+            color: #a61c2e;
+        }
+
+        .dark .nav-item.active {
+            background-color: rgba(166, 28, 46, 0.2);
+            color: #ef4444;
+        }
+
+        .nav-item.active .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1;
+        }
+
+        /* View toggling */
+        .view-section {
+            display: none;
+        }
+
+        .view-section.active-view {
+            display: block;
+        }
+    </style>
+</head>
+
+<body class="font-display bg-background-light dark:bg-background-dark">
+    <div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
+        <div class="flex min-h-screen">
+            <!-- Sidebar -->
+            <aside
+                class="w-64 flex-shrink-0 bg-container-light dark:bg-background-dark dark:border-r dark:border-white/10 shadow-sm">
+                <div class="flex h-full flex-col justify-between p-4">
+                    <div class="flex flex-col gap-8">
+                        <div class="flex items-center gap-3 px-3 py-2">
+                            <img src="/static/images/icon-boc-red.png"
+                                class="bg-white rounded-lg p-1 h-10 w-10 border border-gray-100 dark:border-gray-700">
+                            <div class="flex flex-col">
+                                <h1 class="text-gray-900 dark:text-white text-lg font-bold">BoC Admin</h1>
+                                <p class="text-gray-500 dark:text-gray-400 text-sm">Dashboard</p>
+                            </div>
+                        </div>
+                        <nav class="flex flex-col gap-2">
+                            <div class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-gray-600 dark:text-gray-300 transition-colors active"
+                                onclick="switchView('audit')" data-view="audit">
+                                <span class="material-symbols-outlined">description</span>
+                                <p class="text-sm font-medium">Audit Logs</p>
+                            </div>
+                            <div class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-gray-600 dark:text-gray-300 transition-colors"
+                                onclick="switchView('files')" data-view="files">
+                                <span class="material-symbols-outlined">folder_delete</span>
+                                <p class="text-sm font-medium">Residual Files</p>
+                            </div>
+                            <div class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-gray-600 dark:text-gray-300 transition-colors"
+                                onclick="switchView('system')" data-view="system">
+                                <span class="material-symbols-outlined">memory</span>
+                                <p class="text-sm font-medium">System Resources</p>
+                            </div>
+
+                            <div class="h-px bg-gray-200 dark:bg-white/10 my-2 mx-3"></div>
+
+                            <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-gray-600 dark:text-gray-300 cursor-pointer"
+                                href="/">
+                                <span class="material-symbols-outlined">arrow_back</span>
+                                <p class="text-sm font-medium">Back to App</p>
+                            </a>
+                        </nav>
+                    </div>
+
+                    <button
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 text-red-600 dark:text-red-400 transition-colors w-full"
+                        onclick="logout()">
+                        <span class="material-symbols-outlined">logout</span>
+                        <p class="text-sm font-medium">Sign Out</p>
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1 p-8">
+                <div class="flex flex-col gap-8 max-w-6xl mx-auto">
+                    <!-- Top Header -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h1 class="text-gray-900 dark:text-white text-3xl font-bold" id="page-heading">System
+                                    Audit Logs</h1>
+                                <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">
+                                    Auditor: <span class="font-medium text-gray-700 dark:text-gray-300">Logged In</span>
+                                </p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="refreshCurrentView()"
+                                    class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                    <span class="material-symbols-outlined text-[20px]">refresh</span>
+                                    Refresh
+                                </button>
+                                <button id="delete-all-btn" onclick="deleteAllFiles()"
+                                    class="hidden items-center gap-2 px-4 py-2 bg-red-600 text-white border border-red-700 dark:border-red-500 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors">
+                                    <span class="material-symbols-outlined text-[20px]">delete_sweep</span>
+                                    Delete All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VIEWS -->
+
+                    <!-- Audit Logs View -->
+                    <div id="view-audit" class="view-section active-view">
+                        <div
+                            class="bg-container-light dark:bg-container-dark rounded-xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left" id="logsTable">
+                                    <thead
+                                        class="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-white/5 dark:text-gray-400">
+                                        <tr>
+                                            <th class="px-6 py-3">Timestamp</th>
+                                            <th class="px-6 py-3">Action</th>
+                                            <th class="px-6 py-3">Filename</th>
+                                            <th class="px-6 py-3">Status</th>
+                                            <th class="px-6 py-3">Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody
+                                        class="divide-y divide-gray-100 dark:divide-white/5 text-gray-700 dark:text-gray-300">
+                                        <!-- Loaded via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Residual Files View -->
+                    <div id="view-files" class="view-section">
+                        <div
+                            class="bg-container-light dark:bg-container-dark rounded-xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left" id="filesTable">
+                                    <thead
+                                        class="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-white/5 dark:text-gray-400">
+                                        <tr>
+                                            <th class="px-6 py-3">Filename</th>
+                                            <th class="px-6 py-3">Size</th>
+                                            <th class="px-6 py-3">Created</th>
+                                            <th class="px-6 py-3 text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody
+                                        class="divide-y divide-gray-100 dark:divide-white/5 text-gray-700 dark:text-gray-300">
+                                        <!-- Loaded via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Resources View -->
+                    <div id="view-system" class="view-section">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- GPU Card -->
+                            <div
+                                class="bg-container-light dark:bg-container-dark p-6 rounded-xl shadow-sm border border-gray-100 dark:border-white/5">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <span class="material-symbols-outlined text-primary text-2xl">developer_board</span>
+                                    <h2 class="text-lg font-bold text-gray-900 dark:text-white">GPU Status</h2>
+                                </div>
+
+                                <div class="space-y-6">
+                                    <div>
+                                        <div class="flex justify-between mb-2 text-sm font-medium">
+                                            <span class="text-gray-700 dark:text-gray-300">VRAM Usage</span>
+                                            <span id="vram-text" class="text-gray-500">-- / -- MB</span>
+                                        </div>
+                                        <div class="h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                            <div id="vram-bar" class="h-full bg-primary transition-all duration-500"
+                                                style="width: 0%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div class="flex justify-between mb-2 text-sm font-medium">
+                                            <span class="text-gray-700 dark:text-gray-300">Core Utilization</span>
+                                            <span id="gpu-util-text" class="text-gray-500">0%</span>
+                                        </div>
+                                        <div class="h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                            <div id="gpu-util-bar"
+                                                class="h-full bg-green-500 transition-all duration-500"
+                                                style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Models Card -->
+                            <div
+                                class="bg-container-light dark:bg-container-dark p-6 rounded-xl shadow-sm border border-gray-100 dark:border-white/5">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <span class="material-symbols-outlined text-blue-600 text-2xl">smart_toy</span>
+                                    <h2 class="text-lg font-bold text-gray-900 dark:text-white">Active Models</h2>
+                                </div>
+
+                                <ul id="model-list" class="space-y-3 mb-6">
+                                    <li
+                                        class="p-3 bg-gray-50 dark:bg-white/5 rounded-lg text-sm text-gray-500 text-center">
+                                        Loading...</li>
+                                </ul>
+
+                                <div class="pt-6 border-t border-gray-100 dark:border-white/5">
+                                    <div class="flex items-start gap-3 mb-4">
+                                        <span class="material-symbols-outlined text-orange-500 mt-0.5">warning</span>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                                            Manual Optimization: Force release GPU memory by unloading idle models. Use
+                                            if system is slow.
+                                        </p>
+                                    </div>
+                                    <button onclick="optimizeSystem()"
+                                        class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 border border-red-100 dark:bg-red-900/20 dark:border-red-900/30 dark:text-red-400 font-medium rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
+                                        <span class="material-symbols-outlined text-[18px]">cleaning_services</span>
+                                        Force Release Resources
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="/static/js/admin.js"></script>
+</body>
+
+</html>

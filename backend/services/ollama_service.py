@@ -170,5 +170,6 @@ Content:
             raise Exception(f"Error en la traducción: {str(e)}")
 
 
-# Instancia global (por defecto usa el motor Ollama para mayor calidad)
+# Instancia global (usamos Ollama para máxima calidad en documentos)
+# Optimizada para uso concurrente con OLLAMA_NUM_PARALLEL
 translation_service = OllamaTranslationService()
