@@ -1,15 +1,51 @@
 # Python & UV
 .venv/
+venv/
+env/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# Archivos del Sistema
+# Frontend
+frontend/node_modules/*
+frontend/dist/*
+frontend/coverage/*
+
+# IDEs & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS Generated
 .DS_Store
 Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# Logs
+logs/
+*.log
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
 
 # BoC Translator Data
 uploads/*
 !uploads/.gitkeep
 models/*
 !models/.gitkeep
+
+# Secrets
 .env
+.env.*
+!.env.example

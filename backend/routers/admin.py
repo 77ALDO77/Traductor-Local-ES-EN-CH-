@@ -3,6 +3,7 @@ import io
 from fastapi import APIRouter, Depends, HTTPException
 from backend.auth import verify_admin
 from backend.services.audit_service import AUDIT_FILE
+from backend.services.ollama_service import translation_service
 import httpx
 import os
 
@@ -97,6 +98,77 @@ async def delete_all_files(username: str = Depends(verify_admin)):
             "deleted": deleted_files,
             "errors": errors
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Model Management ---
+
+from pydantic import BaseModel
+
+class ModelSelectRequest(BaseModel):
+    model: str
+
+@router.get("/models")
+async def list_models(username: str = Depends(verify_admin)):
+    """Lista todos los modelos disponibles en Ollama."""
+    try:
+        models = await translation_service.list_available_models()
+        current = translation_service.get_model()
+        return {
+            "models": models,
+            "current_model": current
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error consultando Ollama: {str(e)}")
+
+@router.get("/models/current")
+async def get_current_model(username: str = Depends(verify_admin)):
+    """Retorna el modelo actualmente en uso."""
+    try:
+        model = translation_service.get_model()
+        available = await translation_service.check_model_available()
+        return {
+            "model": model,
+            "available": available,
+            "warning": None if available else f"Modelo '{model}' no encontrado en Ollama"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/models/select")
+async def select_model(request: ModelSelectRequest, username: str = Depends(verify_admin)):
+    """Cambia el modelo activo para traducciones."""
+    try:
+        models = await translation_service.list_available_models()
+        model_names = [m["name"] for m in models]
+
+        if not model_names:
+            raise HTTPException(status_code=503, detail="No hay modelos disponibles en Ollama")
+
+        if request.model not in model_names:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Modelo '{request.model}' no disponible. Disponibles: {', '.join(model_names)}"
+            )
+
+        old_model = translation_service.get_model()
+        translation_service.set_model(request.model)
+
+        from backend.services.audit_service import audit_service
+        audit_service.log_event(
+            "MODEL_SWITCH",
+            request.model,
+            "SWITCHED",
+            f"Previous: {old_model} -> New: {request.model}"
+        )
+
+        return {
+            "status": "success",
+            "previous_model": old_model,
+            "current_model": request.model
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

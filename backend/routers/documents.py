@@ -85,6 +85,23 @@ async def upload_document(file: UploadFile = File(...)):
     )
 
 
+@router.get("/list")
+async def list_documents():
+    """Devuelve la lista de documentos cargados en memoria."""
+    # Convertir a lista y agregar info extra si es necesario
+    return [
+        {
+            "filename": filename,
+            "original_name": filename,  # Simple mapping
+            "status": "uploaded" if filename not in active_tasks else "processing",
+            "upload_time":  time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime(info["path"].stat().st_mtime)),
+             # Info extra del dict
+             **{k: v for k, v in info.items() if k != "path"}
+        }
+        for filename, info in uploaded_documents.items()
+    ]
+
+
 @router.post("/translate/stream")
 async def translate_document_stream(
     filename: str = Form(...),

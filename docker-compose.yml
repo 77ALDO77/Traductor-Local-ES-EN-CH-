@@ -50,6 +50,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/certs:/etc/nginx/certs:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
     depends_on:
       - backend
     networks:
@@ -83,33 +84,33 @@ services:
               count: all
               capabilities: [ gpu ]
 
-  translator_engine:
-    build:
-      context: ./translator_engine
-    container_name: boc_translator_engine_v1
-    restart: always
-    ports:
-      - "9000:9000"
-    volumes:
-      - boc_whisper_data:/app/models_whisper
-      - ./translator_engine:/app
-    environment:
-      - WHISPER_MODEL_SIZE=medium
-      - WHISPER_DEVICE=cuda
-      - WHISPER_COMPUTE_TYPE=int8_float16
-      - NMT_DEVICE=cuda
-      - NMT_COMPUTE_TYPE=float16
-      - MAX_BATCH_SIZE=32
-      - TZ=America/Lima
-    networks:
-      - translator_network
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [ gpu ]
+#  translator_engine:
+#    build:
+#      context: ./translator_engine
+#    container_name: boc_translator_engine_v1
+#    restart: always
+#    ports:
+#      - "9000:9000"
+#    volumes:
+#      - boc_whisper_data:/app/models_whisper
+#      - ./translator_engine:/app
+#    environment:
+#      - WHISPER_MODEL_SIZE=medium
+#      - WHISPER_DEVICE=cuda
+#      - WHISPER_COMPUTE_TYPE=int8_float16
+#      - NMT_DEVICE=cuda
+#      - NMT_COMPUTE_TYPE=float16
+#      - MAX_BATCH_SIZE=32
+#      - TZ=America/Lima
+#    networks:
+#      - translator_network
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: all
+#              capabilities: [ gpu ]
 
 networks:
   translator_network:

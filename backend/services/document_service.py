@@ -131,7 +131,7 @@ class DocumentService:
         source_lang: str, 
         target_lang: str
     ) -> str:
-        """Traduce texto con control de concurrencia."""
+        """Traduce texto con control de concurrencia y reintentos."""
         async with self.semaphore:
             result = await translation_service.translate(
                 text=text,
@@ -146,12 +146,20 @@ class DocumentService:
         source_lang: str,
         target_lang: str
     ) -> list[str]:
-        """Traduce un batch de textos en paralelo."""
+        """Traduce un batch de textos en paralelo con tolerancia a fallos individuales."""
         tasks = [
             self._translate_with_semaphore(text, source_lang, target_lang)
             for text in texts
         ]
-        return await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        out = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"Fallo traduciendo item {i} '{texts[i][:40]}...': {result}")
+                out.append(texts[i])  # mantener original si falla
+            else:
+                out.append(result)
+        return out
     
     def _should_translate(self, text: str) -> bool:
         """Determina si un texto debe ser traducido."""
@@ -356,33 +364,47 @@ class DocumentService:
         # Helper recursivo para explorar contenedores (Documento, Celdas, Headers, Footers)
         def process_container(container):
             # 1. Procesar párrafos del contenedor actual
-            for para in container.paragraphs:
-                if self._should_translate(para.text):
-                    prefix, content, suffix = self._extract_text_structure(para.text)
-                    if self._should_translate(content):
-                        translatable_items.append(("paragraph", para))
-                        original_structures.append((prefix, content, suffix))
+            try:
+                for para in container.paragraphs:
+                    try:
+                        if self._should_translate(para.text):
+                            prefix, content, suffix = self._extract_text_structure(para.text)
+                            if self._should_translate(content):
+                                translatable_items.append(("paragraph", para))
+                                original_structures.append((prefix, content, suffix))
+                    except Exception as e:
+                        # Loggear pero continuar. Comentarios corruptos a veces causan esto.
+                        logger.warning(f"Saltando párrafo problemático en DOCX: {e}")
+            except Exception as e:
+                logger.warning(f"Error iterando párrafos en contenedor: {e}")
             
             # 2. Procesar tablas (recursivo para tablas anidadas)
-            for table in container.tables:
-                for row in table.rows:
-                    for cell in row.cells:
-                        process_container(cell)
+            try:
+                for table in container.tables:
+                    for row in table.rows:
+                        for cell in row.cells:
+                            process_container(cell)
+            except Exception as e:
+                logger.warning(f"Error procesando tablas en DOCX: {e}")
 
         # 1. Cuerpo principal
-        process_container(doc)
+        try:
+            process_container(doc)
+        except Exception as e:
+            logger.error(f"Error procesando cuerpo del DOCX: {e}")
         
         # 2. Headers y Footers (iterar sobre todas las secciones)
         for section in doc.sections:
-            # Headers
-            if section.header:
-                process_container(section.header)
-                # Iterar sobre headers alternativos (primera pagina, par/impar) si existen
-                # python-docx abstrae algunos, pero lo básico es section.header
-            
-            # Footers
-            if section.footer:
-                process_container(section.footer)
+            try:
+                # Headers
+                if section.header:
+                    process_container(section.header)
+                
+                # Footers
+                if section.footer:
+                    process_container(section.footer)
+            except Exception as e:
+                logger.warning(f"Error procesando header/footer en sección DOCX: {e}")
         
         total_items = len(translatable_items)
         
@@ -401,28 +423,36 @@ class DocumentService:
             # Solo mandamos traducir el CONTENIDO limpio (sin bullets ni números)
             texts_to_translate = [struct[1] for struct in batch_structures]
             
-            translated_contents = await self._translate_batch(
-                texts_to_translate, source_lang, target_lang
-            )
+            try:
+                translated_contents = await self._translate_batch(
+                    texts_to_translate, source_lang, target_lang
+                )
+            except Exception as e:
+                logger.error(f"Error en traducción batch: {e}")
+                continue # Saltar este batch si falla la API de traducción
             
             for i, (item_type, item) in enumerate(batch_items):
-                prefix, _, suffix = batch_structures[i]
-                translated_content = translated_contents[i]
-                
-                # Reensamblar con la estructura original
-                # Pasamos la longitud original para el ajuste inteligente de puntos (TOC fix)
-                original_content = batch_structures[i][1]
-                final_text = self._reassemble_text(
-                    prefix, 
-                    translated_content, 
-                    suffix, 
-                    original_content_len=len(original_content)
-                )
-                
-                if item_type == "paragraph":
-                    self._replace_paragraph_text_preserve_format(
-                        item, final_text, target_lang
+                try:
+                    prefix, _, suffix = batch_structures[i]
+                    translated_content = translated_contents[i]
+                    
+                    # Reensamblar con la estructura original
+                    # Pasamos la longitud original para el ajuste inteligente de puntos (TOC fix)
+                    original_content = batch_structures[i][1]
+                    final_text = self._reassemble_text(
+                        prefix, 
+                        translated_content, 
+                        suffix, 
+                        original_content_len=len(original_content)
                     )
+                    
+                    if item_type == "paragraph":
+                        self._replace_paragraph_text_preserve_format(
+                            item, final_text, target_lang
+                        )
+                except Exception as e:
+                    logger.error(f"Error aplicando texto traducido a DOCX: {e}")
+                    # Continuar con el siguiente elemento
             
             if progress_callback:
                 progress_callback(
@@ -431,7 +461,11 @@ class DocumentService:
                     f"Traduciendo elemento {batch_end} de {total_items}..."
                 )
         
-        doc.save(output_path)
+        try:
+            doc.save(output_path)
+        except Exception as e:
+            logger.error(f"Error guardando DOCX final: {e}")
+            raise ValueError(f"Error al guardar el documento traducido (posible corrupción por comentarios/cambios): {e}")
     
     async def translate_xlsx_preserving_format(
         self,

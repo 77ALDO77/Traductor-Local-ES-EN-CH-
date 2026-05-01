@@ -66,3 +66,7 @@ docker-compose.yml
 .dockerignore
 *.tar
 *.tar.gz
+
+# Frontend (Build inside container, don't copy local)
+frontend/node_modules/
+frontend/dist/

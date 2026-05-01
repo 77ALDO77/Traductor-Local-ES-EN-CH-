@@ -74,8 +74,8 @@ Antes de instalar, asegúrate de tener:
 ### 1️⃣ Clonar el Repositorio
 
 ```bash
-git clone https://github.com/LOAD-13/BoC_Translator.git
-cd BoC_Translator
+git clone https://github.com/77ALDO77/Traductor-Local-ES-EN-CH-.git
+cd Traductor-Local-ES-EN-CH-
 ```
 
 ### 2️⃣ Configurar el Entorno (usando UV)
@@ -150,7 +150,7 @@ El servidor iniciará en: **http://localhost:8000**
 ## 📂 Estructura del Proyecto
 
 ```
-BoC_Translator/
+BoC-Translator/
 ├── backend/
 │   ├── routers/              # Endpoints (Texto, Documentos, Voz)
 │   │   ├── chat.py
@@ -408,7 +408,7 @@ Las contribuciones son bienvenidas para mejorar este sistema empresarial.
 
 Para reportar bugs o solicitar nuevas funcionalidades:
 
-- 🐛 [Abrir Issue en GitHub](https://github.com/LOAD-13/BoC_Translator/issues)
+- 🐛 [Abrir Issue en GitHub](https://github.com/77ALDO77/Traductor-Local-ES-EN-CH-/issues)
 - 📧 Email: tu-email@ejemplo.com
 - 💼 Proyecto: Bank of China - Software Engineering
 
@@ -416,8 +416,6 @@ Para reportar bugs o solicitar nuevas funcionalidades:
 
 ## 🙏 Agradecimientos
 
-- 💼 GitHub: [@LOAD-13](https://github.com/LOAD-13)
-- 🌐 Portfolio: [jloadenegri.org](https://jloadenegri.org)
 - 🎓 Proyecto: Ingeniería de Software - Bank of China
 
 ---
@@ -426,7 +424,7 @@ Para reportar bugs o solicitar nuevas funcionalidades:
 
 Si este proyecto te resulta útil para tu organización, **considera darle una estrella en GitHub**!
 
-[![GitHub stars](https://img.shields.io/github/stars/LOAD-13/BoC_Translator?style=social)](https://github.com/LOAD-13/BoC_Translator/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/77ALDO77/Traductor-Local-ES-EN-CH-?style=social)](https://github.com/77ALDO77/Traductor-Local-ES-EN-CH-/stargazers)
 
 ---
 
@@ -437,7 +435,7 @@ Este proyecto está bajo la **MIT License**.
 ```
 MIT License
 
-Copyright (c) 2025 Joaquín Loa Denegri
+Copyright (c) 2025
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -463,8 +461,6 @@ SOFTWARE.
 <div align="center">
 
 **🔒 Sistema Desarrollado para Entornos de Máxima Seguridad**
-
-**Hecho con ❤️ por [Joaquín Loa Denegri](https://github.com/LOAD-13)**
 
 *Traducción empresarial sin comprometer la seguridad de tus datos*
 

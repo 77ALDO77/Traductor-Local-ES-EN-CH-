@@ -60,9 +60,23 @@ async def transcribe_audio(
     target_language: str = Form("Spanish")
 ):
     """
-    Transcribe audio y traduce al idioma destino.
-    Acepta archivos WAV, MP3, etc.
+    ENDPOINT DESACTIVADO TEMPORALMENTE.
+    Retorna 503 Service Unavailable.
     """
+    raise HTTPException(
+        status_code=503, 
+        detail="El servicio de voz está desactivado temporalmente por mantenimiento de hardware."
+    )
+
+# --- CÓDIGO ANTERIOR ---
+# async def transcribe_audio(
+#    audio: UploadFile = File(...),
+#    target_language: str = Form("Spanish")
+# ):
+#    """
+#    Transcribe audio y traduce al idioma destino.
+#    Acepta archivos WAV, MP3, etc.
+#    """
     start_time = time.time()
     
     try:
@@ -131,189 +145,15 @@ async def voice_websocket(websocket: WebSocket):
     - Servidor responde: {"type": "error", "data": {"message": "..."}}
     """
     await websocket.accept()
-    logger.info("🔌 WebSocket conectado")
+    logger.info("🔌 WebSocket conectado (Modo Mantenimiento)")
     
-    # Idiomas por defecto (usuario selecciona en el front)
-    source_language = "Spanish"
-    target_language = "Spanish"
-    
-    try:
-        # Pre-cargar modelo si no está cargado
-        if not voice_service.model_loaded:
-            await websocket.send_json({
-                "type": "status",
-                "data": {"message": "Cargando modelo de voz..."}
-            })
-            voice_service.load_model()
-            await websocket.send_json({
-                "type": "status",
-                "data": {"message": "Modelo cargado. Listo para transcribir."}
-            })
-        
-        # Buffer de audio para la sesión actual
-        audio_buffer = bytearray()
-        # Guardar el primer chunk (header WebM) para reusarlo al resetear buffer
-        header_chunk = b""
-        
-        while True:
-            # Recibir mensaje
-            message = await websocket.receive_json()
-            msg_type = message.get("type")
-            
-            if msg_type == "config":
-                # Actualizar configuración
-                source_language = message.get("source_language", source_language)
-                target_language = message.get("target_language", target_language)
-                await websocket.send_json({
-                    "type": "status",
-                    "data": {"message": f"Origen: {source_language} | Destino: {target_language}"}
-                })
-                # Limpiar buffer al cambiar config? No necesariamente, pero un reset es útil.
-                # audio_buffer = bytearray() 
+    # Enviar mensaje de error y cerrar
+    await websocket.send_json({
+        "type": "error",
+        "data": {"message": "El servicio de voz está desactivado temporalmente por mantenimiento de hardware."}
+    })
+    await websocket.close(code=1000)
+    return
 
-                
-            elif msg_type == "audio":
-                # Procesar audio
-                try:
-                    audio_b64 = message.get("data")
-                    sample_rate = message.get("sample_rate", 16000)
-                    # Permitir override por mensaje, con fallback al estado
-                    src_lang = message.get("source_language", source_language)
-                    target_lang = message.get("target_language", target_language)
-                    
-                    # Decodificar base64
-                    audio_bytes = base64.b64decode(audio_b64)
-                    
-                    if not header_chunk:
-                        header_chunk = audio_bytes
-                    
-                    # Acumular en el buffer
-                    audio_buffer.extend(audio_bytes)
-                    
-                    # Transcribir el buffer completo acumulado hasta ahora
-                    # Mapear a código ISO para forzar idioma en Whisper
-                    iso = NAME_TO_ISO.get(src_lang, None)
-                    if iso and len(iso) != 2:
-                        iso = None
-                    text, detected_lang, trans_time = await voice_service.transcribe_audio(
-                        audio_data=bytes(audio_buffer),
-                        sample_rate=sample_rate,
-                        forced_language=iso
-                    )
-                    
-                    if not text:
-                        await websocket.send_json({
-                            "type": "status",
-                            "data": {"message": "No se detectó voz"}
-                        })
-
-                        continue
-                    
-                    # Filtro de alucinaciones conocidas de Whisper
-                    HEADERS_HALLUCINATIONS = [
-                        "¡gracias por ver el vídeo!",
-                        "thanks for watching",
-                        "gracias por ver",
-                        "suscríbete",
-                        "subtitles by",
-                        "amara.org",
-                        "translated by",
-                        "you",
-                        "bye",
-                    ]
-                    
-                    text_lower = text.lower().strip()
-                    is_hallucination = False
-                    
-                    # Filtro 1: Texto muy corto repetitivo o vacío
-                    if len(text_lower) < 2:
-                        is_hallucination = True
-                        
-                    # Filtro 2: Alucinaciones conocidas
-                    if not is_hallucination:
-                        for h in HEADERS_HALLUCINATIONS:
-                            if h in text_lower:
-                                 # Si es la alucinación exacta o domina el texto
-                                 if len(text_lower) < len(h) + 10:
-                                     is_hallucination = True
-                                     break
-                    
-                    if is_hallucination:
-                         # Si detectamos alucinación, NO enviamos nada y NO limpiamos buffer
-                         # Simplemente esperamos más audio
-                        continue
-
-                    # Enviar transcripción
-                    await websocket.send_json({
-                        "type": "transcription",
-                        "data": {
-                            "text": text,
-                            "language": src_lang,
-                            "time_ms": round(trans_time, 2)
-                        }
-                    })
-                    
-                    # Traducir si es necesario
-                    if src_lang != target_lang:
-                        # Solo traducir si hay contenido sustancial (>3 chars)
-                        if len(text) > 3:
-                            result = await translation_service.translate(
-                                text=text,
-                                source_lang=src_lang,
-                                target_lang=target_lang
-                            )
-                            
-                            await websocket.send_json({
-                                "type": "translation",
-                                "data": {
-                                    "original": text,
-                                    "translated": result["translated_text"],
-                                    "source_language": src_lang,
-                                    "target_language": target_lang,
-                                    "time_ms": result.get("processing_time_ms", 0)
-                                }
-                            })
-                    else:
-                        await websocket.send_json({
-                            "type": "translation",
-                            "data": {
-                                "original": text,
-                                "translated": text,
-                                "source_language": src_lang,
-                                "target_language": target_lang,
-                                "time_ms": 0
-                            }
-                        })
-
-                    # 4. Verificar fin de frase para "segmentar" con mayor tolerancia
-                    stripped_text = text.strip()
-                    # AUMENTADO: Umbral de 5 a 25 caracteres para evitar cortes prematuros en "Hola."
-                    # Además requierimos puntuación final fuerte.
-                    if len(stripped_text) > 25 and stripped_text[-1] in ".!?。！？":
-                        # Enviar señal de fin de segmento
-                        await websocket.send_json({"type": "segment_end"})
-                        
-                        # Resetear buffer pero MANTENER el header
-                        audio_buffer = bytearray(header_chunk)
-                        
-                except Exception as e:
-                    logger.error(f"Error procesando audio: {e}")
-                    await websocket.send_json({
-                        "type": "error",
-                        "data": {"message": str(e)}
-                    })
-            
-            elif msg_type == "ping":
-                await websocket.send_json({"type": "pong"})
-                
-    except WebSocketDisconnect:
-        logger.info("🔌 WebSocket desconectado")
-    except Exception as e:
-        logger.error(f"Error en WebSocket: {e}")
-        try:
-            await websocket.send_json({
-                "type": "error",
-                "data": {"message": str(e)}
-            })
-        except:
-            pass
+    # Fin del endpoint desactivado
+    pass

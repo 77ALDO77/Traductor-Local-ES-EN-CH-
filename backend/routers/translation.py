@@ -31,7 +31,7 @@ async def translate_text(request: TranslationRequest):
             translated_text=result["translated_text"],
             source_language=request.source_language,
             target_language=request.target_language,
-            model_used="translator_engine",
+            model_used=translation_service.get_model(),
             processing_time_ms=result["processing_time_ms"]
         )
         
