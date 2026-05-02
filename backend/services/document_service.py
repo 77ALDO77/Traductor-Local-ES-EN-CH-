@@ -20,7 +20,7 @@ import re
 from pdf2docx import Converter
 from docx2pdf import convert as docx_to_pdf_convert
 
-from backend.services.ollama_service import translation_service
+from backend.services.llm_service import translation_service
 from backend.services.pdf_translation_service import PDFTranslationService
 
 
@@ -32,7 +32,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 # Configuración de batching
 BATCH_SIZE = 5
 MIN_TEXT_LENGTH = 2
-MAX_CONCURRENT = 4  # Ajustado a OLLAMA_NUM_PARALLEL para evitar cuellos de botella
+MAX_CONCURRENT = 4  # Concurrencia máxima para traducciones
 
 
 class DocumentService:

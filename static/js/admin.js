@@ -246,10 +246,10 @@ async function loadSystemStatus() {
         addModelItem(modelList, 'NLLB-200 (Translator)', loaded.nllb ? 'Ready' : 'Inactive', loaded.nllb);
         addModelItem(modelList, 'Whisper (Speech)', loaded.whisper ? 'Loaded' : 'Sleeping', loaded.whisper);
 
-        // Ollama
-        const ollama = data.ollama || {};
-        (ollama.running_models || []).forEach(m => {
-            addModelItem(modelList, `Ollama: ${m.name}`, 'VRAM Loaded', true);
+        // vLLM
+        const llm = data.llm || {};
+        (llm.models || []).forEach(m => {
+            addModelItem(modelList, `vLLM: ${m.id}`, 'Loaded', true);
         });
 
     } catch (error) {

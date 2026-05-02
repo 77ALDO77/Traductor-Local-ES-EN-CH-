@@ -8,6 +8,7 @@ export default function Dashboard() {
     const [text, setText] = useState('');
     const [translatedText, setTranslatedText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [charCount, setCharCount] = useState(0);
 
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -24,6 +25,7 @@ export default function Dashboard() {
             }, 800);
         } else if (text.length === 0) {
             setTranslatedText('');
+            setError(null);
         }
     }, [text, sourceLang, targetLang]);
 
@@ -32,18 +34,21 @@ export default function Dashboard() {
         if (!text.trim() || text.length > 5000 || sourceLang === targetLang) return;
 
         setIsLoading(true);
+        setError(null);
         try {
-            // In dev, use proxy in vite.config or full URL if needed. 
-            // Assuming vite proxy /api -> backend:8000
             const response = await axios.post('/api/translate/text', {
                 text,
                 source_language: sourceLang,
                 target_language: targetLang,
             });
             setTranslatedText(response.data.translated_text);
-        } catch (error) {
-            console.error("Translation error:", error);
-            // Optional: Add toast notification
+        } catch (err) {
+            console.error("Translation error:", err);
+            const message = axios.isAxiosError(err) && err.response?.data?.detail
+                ? err.response.data.detail
+                : 'Translation failed. Please try again.';
+            setError(message);
+            setTranslatedText('');
         } finally {
             setIsLoading(false);
         }
@@ -143,7 +148,13 @@ export default function Dashboard() {
                         <div
                             className={`form-input flex w-full min-w-0 flex-1 resize-y overflow-y-auto rounded-lg text-[#171212] dark:text-white border border-[#e5dcdd] dark:border-white/20 bg-background-light dark:bg-black/20 min-h-[300px] p-4 text-base font-normal leading-relaxed whitespace-pre-wrap ${isLoading ? 'opacity-50' : ''}`}
                         >
-                            {translatedText || <span className="text-gray-400">Translation will appear here...</span>}
+                            {error ? (
+                                <span className="text-red-500">{error}</span>
+                            ) : translatedText ? (
+                                translatedText
+                            ) : (
+                                <span className="text-gray-400">Translation will appear here...</span>
+                            )}
                         </div>
                     </div>
 

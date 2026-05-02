@@ -4,7 +4,7 @@ Router para endpoints de traducción de texto.
 
 from fastapi import APIRouter, HTTPException
 from backend.schemas.translation import TranslationRequest, TranslationResponse, Language
-from backend.services.ollama_service import translation_service
+from backend.services.llm_service import translation_service
 
 
 router = APIRouter(prefix="/api/translate", tags=["Translation"])

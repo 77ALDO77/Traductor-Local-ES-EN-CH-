@@ -3,7 +3,7 @@ import io
 from fastapi import APIRouter, Depends, HTTPException
 from backend.auth import verify_admin
 from backend.services.audit_service import AUDIT_FILE
-from backend.services.ollama_service import translation_service
+from backend.services.llm_service import translation_service
 import httpx
 import os
 
@@ -119,7 +119,7 @@ async def list_models(username: str = Depends(verify_admin)):
             "current_model": current
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error consultando Ollama: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error consultando vLLM: {str(e)}")
 
 @router.get("/models/current")
 async def get_current_model(username: str = Depends(verify_admin)):
@@ -130,7 +130,7 @@ async def get_current_model(username: str = Depends(verify_admin)):
         return {
             "model": model,
             "available": available,
-            "warning": None if available else f"Modelo '{model}' no encontrado en Ollama"
+            "warning": None if available else f"Modelo '{model}' no encontrado en vLLM"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -143,7 +143,7 @@ async def select_model(request: ModelSelectRequest, username: str = Depends(veri
         model_names = [m["name"] for m in models]
 
         if not model_names:
-            raise HTTPException(status_code=503, detail="No hay modelos disponibles en Ollama")
+            raise HTTPException(status_code=503, detail="No hay modelos disponibles en vLLM")
 
         if request.model not in model_names:
             raise HTTPException(
@@ -175,7 +175,7 @@ async def select_model(request: ModelSelectRequest, username: str = Depends(veri
 # --- System Monitor ---
 
 TRANSLATOR_ENGINE_URL = os.getenv("TRANSLATOR_ENGINE_URL", "http://translator_engine:9000")
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://ollama:11434")
+LLM_HOST = os.getenv("LLM_HOST", "http://localhost:8000")
 
 @router.get("/system")
 async def get_system_status(username: str = Depends(verify_admin)):
@@ -189,21 +189,20 @@ async def get_system_status(username: str = Depends(verify_admin)):
             except Exception:
                 te_data = {"error": "Translator Engine offline"}
 
-            # Get Ollama Stats (List running models)
-            ollama_models = []
+            # Get vLLM Stats (list running models)
+            vllm_models = []
             try:
-                # ps gives running models
-                ol_resp = await client.get(f"{OLLAMA_HOST}/api/ps", timeout=2.0)
-                if ol_resp.status_code == 200:
-                    ollama_models = ol_resp.json().get("models", [])
+                vl_resp = await client.get(f"{LLM_HOST}/v1/models", timeout=2.0)
+                if vl_resp.status_code == 200:
+                    vllm_models = vl_resp.json().get("data", [])
             except Exception:
                 pass
 
         return {
             "translator_engine": te_data,
-            "ollama": {
-                "running_models": ollama_models,
-                "count": len(ollama_models)
+            "llm": {
+                "models": vllm_models,
+                "count": len(vllm_models)
             }
         }
     except Exception as e:
@@ -221,7 +220,7 @@ async def optimize_system(username: str = Depends(verify_admin)):
         except Exception as e:
             results["translator_engine"] = {"error": str(e)}
 
-        # 2. Cleanup Ollama (Trick: Generate empty request with keep_alive 0 to unload?)
-        results["ollama"] = "Managed by Keep-Alive policy (5m)"
+        # 2. vLLM memory management is automatic
+        results["llm"] = "Managed by vLLM"
 
     return results

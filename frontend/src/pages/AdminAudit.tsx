@@ -12,15 +12,15 @@ interface AuditLog {
     ip_address: string;
 }
 
-interface OllamaModel {
+interface LLMModel {
     name: string;
-    size: number;
-    modified_at: string;
+    created?: number;
+    owned_by?: string;
 }
 
 export default function AdminAudit() {
     const [logs, setLogs] = useState<AuditLog[]>([]);
-    const [models, setModels] = useState<OllamaModel[]>([]);
+    const [models, setModels] = useState<LLMModel[]>([]);
     const [currentModel, setCurrentModel] = useState('');
     const [selectedModel, setSelectedModel] = useState('');
     const [modelLoading, setModelLoading] = useState(false);
@@ -106,12 +106,6 @@ export default function AdminAudit() {
         navigate('/login');
     };
 
-    const formatSize = (bytes: number) => {
-        if (!bytes) return 'N/A';
-        const gb = bytes / (1024 * 1024 * 1024);
-        return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
-    };
-
     return (
         <div className="flex flex-col gap-6 max-w-6xl mx-auto">
             <div className="flex justify-between items-center">
@@ -151,7 +145,7 @@ export default function AdminAudit() {
                             )}
                             {models.map((m) => (
                                 <option key={m.name} value={m.name}>
-                                    {m.name} ({formatSize(m.size)})
+                                    {m.name}
                                 </option>
                             ))}
                         </select>

@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from ollama import AsyncClient
+from openai import AsyncOpenAI
 
 # Importar routers
 from backend.routers import translation, documents, voice, admin
@@ -28,8 +28,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuración desde variables de entorno (para Docker)
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-MODEL_NAME = os.getenv("MODEL_NAME", "qwen2.5:3b")
+LLM_HOST = os.getenv("LLM_HOST", "http://localhost:8000")
+MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-1.5B-Instruct")
 UPLOAD_DIR = Path("uploads")
 
 # Configuración de limpieza
@@ -77,25 +77,25 @@ async def cleanup_old_files():
 async def lifespan(app: FastAPI):
     """Lifecycle management del servidor."""
     logger.info("🚀 Iniciando BoC_Translator...")
-    logger.info(f"   Ollama Host: {OLLAMA_HOST}")
+    logger.info(f"   LLM Host: {LLM_HOST}")
     logger.info(f"   Modelo LLM: {MODEL_NAME}")
     
-    # Verificar conexión con Ollama
+    # Verificar conexión con vLLM
     try:
-        client = AsyncClient(host=OLLAMA_HOST)
-        models = await client.list()
-        model_names = [m.model for m in models.models]
+        client = AsyncOpenAI(base_url=f"{LLM_HOST}/v1", api_key="not-needed")
+        models = await client.models.list()
+        model_ids = [m.id for m in models.data]
         
-        if not any(MODEL_NAME in name for name in model_names):
-            logger.warning(f"⚠️  ADVERTENCIA: Modelo '{MODEL_NAME}' no encontrado en Ollama.")
-            logger.warning(f"   Ejecuta: docker exec boc_translator_ollama ollama pull {MODEL_NAME}")
+        if MODEL_NAME not in model_ids:
+            logger.warning(f"⚠️  ADVERTENCIA: Modelo '{MODEL_NAME}' no encontrado en vLLM.")
+            logger.warning(f"   Verifica que vLLM esté corriendo con el modelo correcto.")
         else:
             logger.info(f"✅ Modelo '{MODEL_NAME}' encontrado y listo.")
         
-        logger.info("✅ Conexión con Ollama establecida.")
+        logger.info("✅ Conexión con vLLM establecida.")
     except Exception as e:
-        logger.error(f"❌ Error conectando con Ollama: {e}")
-        logger.error("   Verifica que el contenedor 'ollama' esté corriendo.")
+        logger.error(f"❌ Error conectando con vLLM: {e}")
+        logger.error("   Verifica que el contenedor 'vllm' esté corriendo.")
     
     # Crear carpetas necesarias
     UPLOAD_DIR.mkdir(exist_ok=True)
@@ -180,7 +180,7 @@ async def health_check():
     
     health_status = {
         "fastapi": "healthy",
-        "ollama": "unknown",
+        "llm": "unknown",
         "model_llm": MODEL_NAME,
         "model_voice": "Faster-Whisper (medium)",
         "voice_loaded": voice_service.model_loaded,
@@ -188,18 +188,18 @@ async def health_check():
     }
     
     try:
-        client = AsyncClient(host=OLLAMA_HOST)
-        models = await client.list()
-        health_status["ollama"] = "healthy"
+        client = AsyncOpenAI(base_url=f"{LLM_HOST}/v1", api_key="not-needed")
+        models = await client.models.list()
+        health_status["llm"] = "healthy"
         
-        model_names = [m.model for m in models.models]
-        if any(MODEL_NAME in name for name in model_names):
+        model_ids = [m.id for m in models.data]
+        if MODEL_NAME in model_ids:
             health_status["llm_status"] = "available"
         else:
             health_status["llm_status"] = "not_found"
             
     except Exception as e:
-        health_status["ollama"] = "unhealthy"
+        health_status["llm"] = "unhealthy"
         health_status["error"] = str(e)
         return JSONResponse(status_code=503, content=health_status)
     

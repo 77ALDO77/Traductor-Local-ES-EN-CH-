@@ -8,21 +8,13 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - OLLAMA_HOST=http://ollama:11434
-      - MODEL_NAME=qwen2.5:3b
+      - LLM_HOST=http://vllm:8000
+      - MODEL_NAME=Qwen/Qwen2.5-1.5B-Instruct
       - CLEANUP_INTERVAL_MINUTES=60
       - FILE_RETENTION_MINUTES=1440
       - LOG_LEVEL=INFO
       - ADMIN_USERNAME=admin_boc
       - ADMIN_PASSWORD=seguridad_boc_2026
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [ gpu ]
-
     volumes:
       - boc_whisper_data:/app/models
       - boc_uploads:/app/uploads
@@ -32,7 +24,7 @@ services:
     networks:
       - translator_network
     depends_on:
-      - ollama
+      - vllm
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s
@@ -56,24 +48,26 @@ services:
     networks:
       - translator_network
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: boc_translator_ollama_v1
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: boc_translator_vllm_v1
     restart: unless-stopped
     ports:
-      - "11434:11434"
+      - "8001:8000"
+    command: >
+      --model Qwen/Qwen2.5-1.5B-Instruct
+      --host 0.0.0.0
+      --port 8000
+      --max-model-len 2048
+      --gpu-memory-utilization 0.90
+      --dtype auto
     environment:
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_GPU=1
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-      - OLLAMA_FLASH_ATTENTION=true
-      - OLLAMA_KEEP_ALIVE=5m
-      - OLLAMA_NUM_PARALLEL=4
-      - OLLAMA_MAX_LOADED_MODELS=1
+      - HF_HUB_ENABLE_HF_TRANSFER=1
       - TZ=America/Lima
     volumes:
-      - boc_ollama_data:/root/.ollama
+      - boc_vllm_data:/root/.cache/huggingface
     networks:
       - translator_network
     deploy:
@@ -118,9 +112,9 @@ networks:
     name: boc_translator_net
 
 volumes:
-  boc_ollama_data:
+  boc_vllm_data:
     driver: local
-    name: boc_ollama_data
+    name: boc_vllm_data
   boc_whisper_data:
     driver: local
     name: boc_whisper_data

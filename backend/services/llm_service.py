@@ -1,29 +1,23 @@
 """
-Servicio de integración con Ollama para traducciones.
+Servicio de integración con vLLM para traducciones (OpenAI-compatible API).
 """
-
 import os
 import time
 import asyncio
 import logging
 import httpx
-from ollama import AsyncClient, ResponseError
+from openai import AsyncOpenAI, APIError, APIStatusError
 
 logger = logging.getLogger(__name__)
 
-
-# Configuración desde variables de entorno
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-MODEL_NAME = os.getenv("MODEL_NAME", "qwen2.5:3b")
+LLM_HOST = os.getenv("LLM_HOST", "http://localhost:8000")
+MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-1.5B-Instruct")
 
 
 class FastTranslationService:
     async def translate(self, text: str, source_lang: str, target_lang: str):
         """
         Traduce usando el servicio NMT local (translator_engine).
-
-        Maneja errores de red/JSON y normaliza la respuesta para el backend
-        (convierte "time_ms" -> "processing_time_ms").
         """
         url = "http://translator_engine:9000/translate"
         payload = {
@@ -60,11 +54,11 @@ class FastTranslationService:
             }
 
 
-class OllamaTranslationService:
-    def __init__(self, host: str = OLLAMA_HOST, model: str = MODEL_NAME):
+class LLMTranslationService:
+    def __init__(self, host: str = LLM_HOST, model: str = MODEL_NAME):
         self.host = host
         self.model = model
-        self.client = AsyncClient(host=host)
+        self.client = AsyncOpenAI(base_url=f"{host}/v1", api_key="not-needed")
 
     def set_model(self, model_name: str):
         self.model = model_name
@@ -74,28 +68,29 @@ class OllamaTranslationService:
 
     async def check_model_available(self) -> bool:
         try:
-            models = await self.client.list()
-            model_names = [m.model for m in models.models]
-            return self.model in model_names
+            models = await self.client.models.list()
+            model_ids = [m.id for m in models.data]
+            return self.model in model_ids
         except Exception:
             return False
 
     async def list_available_models(self) -> list[dict]:
         try:
-            models = await self.client.list()
+            models = await self.client.models.list()
             return [
-                {"name": m.model, "size": m.size if hasattr(m, "size") else 0,
-                 "modified_at": m.modified_at if hasattr(m, "modified_at") else ""}
-                for m in models.models
+                {
+                    "name": m.id,
+                    "created": m.created,
+                    "owned_by": m.owned_by,
+                }
+                for m in models.data
             ]
         except Exception:
             return []
 
-
-
     async def translate(self, text: str, source_lang: str, target_lang: str, max_retries: int = 3):
         """
-        Traduce texto usando el modelo Qwen vía Ollama con reintentos.
+        Traduce texto usando el modelo LLM vía vLLM con reintentos.
 
         Returns:
             dict con el texto traducido y metadata
@@ -107,14 +102,12 @@ class OllamaTranslationService:
                 "processing_time_ms": 0.0,
             }
 
-        # Construcción de reglas para el System Prompt
         lang_names = {
             "English": "English",
             "Spanish": "Spanish",
             "Chinese": "Simplified Chinese",
         }
 
-        # Detección robusta de Chino
         target_lower = target_lang.lower()
         if "chinese" in target_lower or "chino" in target_lower or "mandarin" in target_lower or target_lower in ["zh", "cn", "zh-cn"]:
             target_lang_prompt = "Simplified Chinese"
@@ -153,22 +146,23 @@ class OllamaTranslationService:
         last_error = None
         for attempt in range(max_retries):
             try:
-                response = await self.client.chat(
+                response = await self.client.chat.completions.create(
                     model=self.model,
                     messages=[
                         {"role": "system", "content": system_content},
                         {"role": "user", "content": text},
                     ],
-                    options={
-                        "temperature": 0.1,
-                        "top_p": 0.9,
-                        "num_predict": 1024,
-                        "repeat_penalty": 1.1,
-                    },
+                    temperature=0.1,
+                    top_p=0.9,
+                    max_tokens=1024,
+                    frequency_penalty=0.1,
                 )
 
                 processing_time = (time.time() - start_time) * 1000
-                translated_text = response.message.content.strip()
+                translated_text = response.choices[0].message.content
+                if translated_text is None:
+                    translated_text = ""
+                translated_text = translated_text.strip()
                 print(f"DEBUG: Result: '{translated_text[:50]}...'", flush=True)
 
                 prefixes_to_remove = [
@@ -194,18 +188,18 @@ class OllamaTranslationService:
                     "processing_time_ms": round(processing_time, 2),
                 }
 
-            except ResponseError as e:
-                error_msg = str(e.error).lower() if hasattr(e, "error") else str(e).lower()
+            except APIStatusError as e:
+                error_msg = str(e.body).lower() if e.body else str(e).lower()
                 last_error = e
-                # No reintentar si el modelo no existe
-                if "not found" in error_msg or "404" in error_msg:
-                    raise Exception(f"Error del modelo Ollama: {e.error}")
+                if "not found" in error_msg or "404" in str(e.status_code):
+                    raise Exception(f"Error del modelo vLLM: {e.message}")
+            except APIError as e:
+                last_error = e
             except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
                 last_error = e
             except Exception as e:
                 error_str = str(e).lower()
                 last_error = e
-                # No reintentar errores de modelo no encontrado
                 if "not found" in error_str or "404" in error_str:
                     raise Exception(f"Error en la traducción: {str(e)}")
 
@@ -224,6 +218,5 @@ class OllamaTranslationService:
         raise Exception(f"Error en la traducción (agotados {max_retries} reintentos): {str(last_error)}")
 
 
-# Instancia global (usamos Ollama para máxima calidad en documentos)
-# Optimizada para uso concurrente con OLLAMA_NUM_PARALLEL
-translation_service = OllamaTranslationService()
+# Instancia global
+translation_service = LLMTranslationService()

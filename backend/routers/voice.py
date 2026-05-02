@@ -21,7 +21,7 @@ from backend.schemas.voice import (
     Language
 )
 from backend.services.voice_service import voice_service
-from backend.services.ollama_service import translation_service
+from backend.services.llm_service import translation_service
 
 
 logger = logging.getLogger(__name__)
