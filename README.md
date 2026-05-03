@@ -1,23 +1,25 @@
 # 🏦 BoC Translator - Offline Secure Translation System
 
-![Python](https://img.shields.io/badge/Python-3.10-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.109-green)
-![Ollama](https://img.shields.io/badge/LLM-Qwen2.5-orange)
-![Whisper](https://img.shields.io/badge/ASR-Faster--Whisper-purple)
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.123-green)
+![vLLM](https://img.shields.io/badge/LLM-vLLM--Qwen2.5-orange)
+![React](https://img.shields.io/badge/Frontend-React--18-61dafb)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Security](https://img.shields.io/badge/Security-100%25%20Offline-red)
 
 Sistema de traducción empresarial de **Alta Fidelidad** diseñado para entornos de máxima seguridad. Funciona **100% Offline** (sin internet), garantizando que ningún dato confidencial salga de la infraestructura local del Bank of China.
+
+**Idiomas soportados:** Inglés ↔ Español ↔ Chino Simplificado
 
 ---
 
 ## 🚀 Características Principales
 
 ### 💬 Traducción de Texto Seguro (Chat)
-- Motor de traducción impulsado por **Qwen 2.5 (7B)** ejecutándose localmente vía Ollama
+- Motor de traducción impulsado por **Qwen2.5-1.5B-Instruct** ejecutándose localmente vía **vLLM** (API compatible con OpenAI)
 - Sin límites de caracteres y sin conexión a APIs externas
-- Traducción bidireccional instantánea
-- Interfaz conversacional intuitiva
+- Traducción bidireccional instantánea entre los 3 idiomas soportados
+- Interfaz conversacional intuitiva (React SPA)
 
 ### 📄 Traducción de Documentos "High Fidelity"
 Traduce archivos manteniendo su **formato original exacto** (tablas, imágenes, negritas, colores, estilos).
@@ -30,18 +32,10 @@ Traduce archivos manteniendo su **formato original exacto** (tablas, imágenes, 
 **Estrategia de Preservación:**
 - **Word/Excel:** Modificación *in-place* de las estructuras XML internas para preservar estilos
 - **PDF:** Conversión inteligente `PDF → Word → Traducción → PDF` para mantener el diseño visual
-- **Garbage Collector:** Limpieza automática de archivos temporales cada 10 minutos
+- **Garbage Collector:** Limpieza automática de archivos temporales (configurable, 60 min en Docker)
 
-### 🎙️ Traducción de Voz en Tiempo Real
-Sistema de reconocimiento de voz (ASR) de baja latencia con capacidades avanzadas.
-
-**Características:**
-- Motor: `Faster-Whisper` (implementación optimizada CTranslate2)
-- Modelo: `medium` (int8) para balance perfecto entre precisión y velocidad en CPU
-- Detección automática de idioma
-- Filtrado de ruido (VAD - Voice Activity Detection)
-- Traducción instantánea del audio transcrito
-- Soporte para múltiples idiomas
+### 🎙️ Traducción de Voz
+> ⚠️ **Servicio desactivado** temporalmente por mantenimiento de hardware. El endpoint y la UI existen pero devuelven error.
 
 ---
 
@@ -49,137 +43,145 @@ Sistema de reconocimiento de voz (ASR) de baja latencia con capacidades avanzada
 
 | Categoría | Tecnología |
 |-----------|------------|
-| **Backend** | Python 3.10, FastAPI, Uvicorn |
-| **Frontend** | HTML5, JavaScript (Vanilla), TailwindCSS |
-| **LLM** | Ollama (Qwen 2.5 - 7B) |
-| **Audio Processing** | Faster-Whisper, FFmpeg |
-| **Document Processing** | python-docx, openpyxl, pdf2docx, docx2pdf |
-| **Package Manager** | UV (entornos virtuales rápidos) |
+| **Backend** | Python 3.11, FastAPI, Uvicorn |
+| **Frontend** | React 18, TypeScript, Vite, TailwindCSS |
+| **LLM** | vLLM (Qwen/Qwen2.5-1.5B-Instruct, API OpenAI-compatible) |
+| **Reverse Proxy** | Nginx (HTTPS con certificados auto-firmados) |
+| **Document Processing** | python-docx, openpyxl, pdf2docx, PyMuPDF, reportlab |
+| **Package Manager** | UV (backend), npm (frontend) |
 
 ---
 
 ## 📋 Requisitos Previos
 
-Antes de instalar, asegúrate de tener:
+### Para Docker (recomendado — stack completo)
+- 🐳 **Docker + Docker Compose** instalados
+- 🎮 **GPU NVIDIA** con drivers actualizados (vLLM requiere GPU)
 
-- 🐍 **Python 3.10** instalado
-- 🤖 **Ollama** instalado y ejecutándose ([Descargar Ollama](https://ollama.com/))
-- 🎬 **FFmpeg** instalado y agregado al PATH del sistema
-- 📦 **UV** instalado (`pip install uv`)
+### Para desarrollo local (backend solamente)
+- 🐍 **Python 3.11** instalado
+- 📦 **UV** instalado
+- 🤖 **vLLM** corriendo con el modelo `Qwen/Qwen2.5-1.5B-Instruct` (requiere GPU)
+
+> **Nota:** El README original mencionaba Ollama — esa información está desactualizada. El backend usa **vLLM** con la API compatible de OpenAI.
 
 ---
 
 ## ⚙️ Instalación y Configuración
 
-### 1️⃣ Clonar el Repositorio
+### Opción A: Docker (Stack Completo — Recomendado)
+
+Incluye backend + vLLM + nginx con React SPA + HTTPS.
 
 ```bash
+# 1. Clonar el repositorio
 git clone https://github.com/77ALDO77/Traductor-Local-ES-EN-CH-.git
 cd Traductor-Local-ES-EN-CH-
+
+# 2. Construir y levantar todos los servicios
+docker compose up -d
+
+# 3. Acceder a la aplicación
+# HTTPS: https://localhost (certificado auto-firmado)
+# HTTP redirige automáticamente a HTTPS
 ```
 
-### 2️⃣ Configurar el Entorno (usando UV)
+**Servicios que se inician:**
 
-El proyecto usa `uv` para gestionar dependencias y fijar Python 3.10.
+| Servicio | Puerto | Descripción |
+|----------|--------|-------------|
+| nginx | 80 → 443 | Frontend React SPA + HTTPS + proxy a backend |
+| backend | 8000 | FastAPI (accesible vía nginx) |
+| vLLM | 8001 | Modelo LLM (interno, accedido por backend) |
+
+**Comandos útiles:**
 
 ```bash
-# Crear entorno virtual y sincronizar dependencias
+docker compose logs -f            # ver logs de todos los servicios
+docker compose logs -f backend    # ver solo logs del backend
+docker compose restart            # reiniciar servicios
+docker compose down               # detener todo
+```
+
+**Credenciales de admin (auditoría):**
+- Usuario: `admin_boc`
+- Contraseña: `seguridad_boc_2026`
+
+### Opción B: Desarrollo Local (Backend Solamente)
+
+Solo el backend FastAPI. Requiere vLLM corriendo por separado.
+
+```bash
+# 1. Clonar el repositorio
+git clone https://github.com/77ALDO77/Traductor-Local-ES-EN-CH-.git
+cd Traductor-Local-ES-EN-CH-
+
+# 2. Sincronizar dependencias
 uv sync
+
+# 3. Configurar vLLM (debe estar corriendo antes de iniciar el backend)
+# Ejemplo: vllm serve Qwen/Qwen2.5-1.5B-Instruct --port 8001
+
+# 4. Iniciar el backend apuntando a tu instancia de vLLM
+LLM_HOST=http://localhost:8001 uv run main.py
 ```
 
-### 3️⃣ Descargar el Modelo LLM
+> **Importante:** El default de `LLM_HOST` es `http://localhost:8000`, que es el mismo puerto del backend. **Siempre configura `LLM_HOST`** al puerto donde corre vLLM.
 
-Asegúrate de que Ollama esté corriendo y descarga el modelo Qwen:
+**Frontend en desarrollo local:**
+
+El backend local sirve HTML plano desde `templates/`. Para usar la React SPA:
 
 ```bash
-ollama pull qwen2.5:7b
+cd frontend
+npm install
+npm run dev       # Vite dev server en http://localhost:5173
+npm run build     # genera dist/ (para producción/nginx)
 ```
-
-### 4️⃣ Instalar FFmpeg
-
-#### Windows
-```powershell
-# PowerShell como Administrador
-winget install Gyan.FFmpeg
-
-# REINICIA tu terminal después de este paso
-```
-
-#### Linux (Ubuntu/Debian)
-```bash
-sudo apt update
-sudo apt install ffmpeg
-```
-
-#### macOS
-```bash
-brew install ffmpeg
-```
-
-### 5️⃣ Verificar Instalación
-
-```bash
-# Verificar Python
-python --version
-
-# Verificar Ollama
-ollama list
-
-# Verificar FFmpeg
-ffmpeg -version
-```
-
----
-
-## ▶️ Ejecución
-
-Para iniciar el servidor de desarrollo:
-
-```bash
-uv run main.py
-```
-
-El servidor iniciará en: **http://localhost:8000**
-
-### 🎯 Primer Uso
-
-⚠️ **Nota Importante:** La primera vez que accedas a la sección de **Voz**, el sistema descargará automáticamente el modelo `faster-whisper-medium` (~1.5 GB). Este proceso ocurre **solo una vez** y se almacena en caché local.
 
 ---
 
 ## 📂 Estructura del Proyecto
 
 ```
-BoC-Translator/
+Traductor-Local-ES-EN-CH-/
+├── main.py                      # FastAPI app, entry point
+├── pyproject.toml               # Backend dependencies (uv)
+├── uv.lock                      # Lockfile exacto
+├── docker-compose.yml           # Stack: backend + vLLM + nginx
+├── Dockerfile                   # Backend container (Python 3.11-slim)
+│
 ├── backend/
-│   ├── routers/              # Endpoints (Texto, Documentos, Voz)
-│   │   ├── chat.py
-│   │   ├── documents.py
-│   │   └── voice.py
-│   ├── services/             # Lógica de negocio
-│   │   ├── llm_service.py    # Integración con Ollama
-│   │   ├── whisper_service.py # ASR con Faster-Whisper
-│   │   └── document_parser.py # Procesamiento de documentos
-│   └── schemas/              # Modelos Pydantic
-│       └── translation.py
+│   ├── routers/
+│   │   ├── translation.py       # POST /api/translate/text, GET /api/translate/languages
+│   │   ├── documents.py         # POST /api/translate/document, GET /api/translate/download/{id}
+│   │   ├── voice.py             # Voice endpoints (DISABLED)
+│   │   └── admin.py             # Admin audit (HTTP Basic Auth)
+│   ├── services/
+│   │   ├── llm_service.py       # vLLM via AsyncOpenAI (translation_service singleton)
+│   │   ├── document_service.py  # DOCX/XLSX/PDF translation (document_service singleton)
+│   │   ├── pdf_translation_service.py  # PDF-specific logic
+│   │   ├── audit_service.py     # CSV audit log (audit_service singleton)
+│   │   └── voice_service.py     # DUMMY — raises on all calls
+│   ├── schemas/                 # Pydantic models
+│   ├── auth.py                  # HTTP Basic Auth
+│   └── utils.py                 # secure_wipe_and_delete()
 │
-├── static/                   # Assets frontend
-│   ├── css/
-│   ├── js/
-│   └── images/
+├── frontend/                    # React 18 + TypeScript + Vite
+│   ├── src/
+│   │   ├── pages/               # Dashboard, Documents, Voice, Login, AdminAudit
+│   │   └── components/          # Sidebar, MainLayout
+│   ├── package.json
+│   └── dist/                    # Build output (served by nginx in Docker)
 │
-├── templates/                # Vistas HTML (Jinja2)
-│   ├── index.html
-│   ├── chat.html
-│   ├── documents.html
-│   └── voice.html
+├── nginx/
+│   ├── nginx.conf               # HTTPS + SPA routing + API proxy
+│   └── certs/                   # Self-signed TLS certificates
 │
-├── uploads/                  # Almacenamiento temporal (Auto-limpiable)
-├── models/                   # Caché local de modelos de audio
-├── main.py                   # Punto de entrada de la aplicación
-├── pyproject.toml            # Configuración de dependencias (UV)
-├── .gitignore
-└── README.md
+├── templates/                   # Plain HTML fallbacks (served by local dev backend)
+├── static/                      # Static assets (images, etc.)
+├── uploads/                     # Temp file storage (auto-cleanup)
+└── translator_engine/           # DISABLED — CTranslate2 NMT + Faster-Whisper microservice
 ```
 
 ---
@@ -191,7 +193,7 @@ BoC-Translator/
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
 | `POST` | `/api/translate/text` | Traducir texto simple |
-| `POST` | `/api/translate/chat` | Chat conversacional con historial |
+| `GET` | `/api/translate/languages` | Lista de idiomas soportados |
 
 ### 📄 Traducción de Documentos
 
@@ -200,41 +202,20 @@ BoC-Translator/
 | `POST` | `/api/translate/document` | Subir y traducir documento |
 | `GET` | `/api/translate/download/{file_id}` | Descargar documento traducido |
 
-### 🎙️ Traducción de Voz
+### 🛡️ Admin (requiere HTTP Basic Auth)
 
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
-| `POST` | `/api/translate/voice` | Transcribir y traducir audio |
-| `GET` | `/api/voice/status` | Estado del servicio ASR |
+| `GET` | `/admin/audit` | Descargar log de auditoría CSV |
+| `GET` | `/admin/audit/stats` | Estadísticas de uso |
+| `POST` | `/admin/cleanup` | Forzar limpieza de uploads |
 
----
+### 🔍 Health & Status
 
-## 🎯 Guía de Uso
-
-### 💬 Traducción de Texto
-
-1. Accede a la sección **Chat**
-2. Selecciona idioma origen y destino
-3. Escribe o pega tu texto
-4. Haz clic en **Traducir**
-5. Copia el resultado o continúa la conversación
-
-### 📄 Traducción de Documentos
-
-1. Accede a la sección **Documentos**
-2. Arrastra tu archivo o haz clic para seleccionar
-3. Selecciona idiomas de traducción
-4. Espera el procesamiento (el tiempo varía según el tamaño)
-5. Descarga el archivo traducido con formato preservado
-
-### 🎙️ Traducción de Voz
-
-1. Accede a la sección **Voz**
-2. Permite permisos de micrófono
-3. Selecciona idioma destino
-4. Haz clic en **Grabar** y habla claramente
-5. Detén la grabación
-6. Obtén transcripción y traducción instantáneas
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| `GET` | `/health` | Estado del sistema (FastAPI + vLLM) |
+| `GET` | `/api/cleanup/status` | Estado de la carpeta uploads |
 
 ---
 
@@ -244,13 +225,14 @@ BoC-Translator/
 
 - 🔐 **100% Offline**: Sin conexión a internet requerida después de la instalación
 - 🏢 **Datos Locales**: Toda la información permanece en la infraestructura local
-- 🗑️ **Auto-limpieza**: Eliminación automática de archivos temporales cada 10 minutos
+- 🗑️ **Auto-limpieza**: Eliminación automática de archivos temporales (configurable)
 - 🚫 **Sin Telemetría**: Ningún dato se envía a servidores externos
-- 🔒 **Sin Logging Externo**: Los logs permanecen en el servidor local
+- 🔒 **HTTPS forzado** en producción (nginx con certificados auto-firmados)
+- 🔑 **Admin protegido** con HTTP Basic Auth
 
 ### 🛡️ Configuración de Seguridad
 
-Todas las librerías (Hugging Face, Ollama) están configuradas para:
+Todas las librerías (Hugging Face, vLLM) están configuradas para:
 - Trabajar con caché local
 - No enviar métricas
 - No realizar llamadas externas
@@ -267,77 +249,63 @@ Todas las librerías (Hugging Face, Ollama) están configuradas para:
 | **CPU** | Intel i5 (8ª gen) | Intel i9 / AMD Ryzen 9 |
 | **RAM** | 8 GB | 16 GB+ |
 | **Almacenamiento** | 20 GB libres | 50 GB+ SSD |
-| **GPU** | No requerida | Opcional (acelera ASR) |
+| **GPU** | **Requerida (NVIDIA)** | GPU con 4GB+ VRAM |
 
 ### 🚀 Optimizaciones Implementadas
 
-- **Cuantización int8**: Reducción de memoria sin pérdida significativa de precisión
-- **CTranslate2**: Motor optimizado para inferencia rápida
-- **Procesamiento en lotes**: Para documentos largos
+- **vLLM**: Motor de inferencia optimizado con PagedAttention
+- **Modelo ligero**: Qwen2.5-1.5B para balance entre velocidad y calidad
+- **Reintentos automáticos**: Lógica de retry con backoff exponencial en traducciones
 - **Caché de modelos**: Carga única en memoria
-- **VAD (Voice Activity Detection)**: Reduce procesamiento innecesario
+- **Procesamiento en lotes**: Para documentos largos
 
 ---
 
 ## 🧰 Comandos Esenciales
 
 ```bash
-# Iniciar servidor de desarrollo
-uv run main.py
+# Docker — Stack completo
+docker compose up -d              # iniciar todo
+docker compose logs -f            # ver logs
+docker compose logs -f backend    # ver logs del backend
+docker compose down               # detener todo
 
-# Verificar dependencias
-uv sync
+# Local dev — Backend
+uv sync                           # instalar dependencias
+LLM_HOST=http://localhost:8001 uv run main.py   # iniciar backend
 
-# Limpiar caché de modelos
-rm -rf models/
+# Local dev — Frontend
+cd frontend && npm run dev        # Vite dev server
+cd frontend && npm run build      # build para producción
+cd frontend && npm run lint       # ESLint
 
-# Ver logs en tiempo real
-tail -f logs/app.log
-
-# Verificar estado de Ollama
-ollama ps
-
-# Listar modelos descargados
-ollama list
-```
-
----
-
-## 🧪 Testing
-
-```bash
-# Ejecutar tests unitarios
-uv run pytest
-
-# Tests con cobertura
-uv run pytest --cov=backend
-
-# Tests de integración
-uv run pytest tests/integration/
+# Health check
+curl http://localhost:8000/health
 ```
 
 ---
 
 ## ⚠️ Solución de Problemas
 
-### Problema: Ollama no responde
+### Problema: vLLM no responde
 
 ```bash
-# Reiniciar servicio de Ollama
-ollama serve
+# Docker: verificar que el contenedor está corriendo
+docker compose ps
 
-# Verificar que el modelo esté descargado
-ollama list
+# Ver logs de vLLM
+docker compose logs vllm
+
+# Local: verificar que vLLM está corriendo en el puerto correcto
+curl http://localhost:8001/v1/models
 ```
 
-### Problema: FFmpeg no encontrado
+### Problema: Modelo no encontrado en vLLM
 
 ```bash
-# Windows: Verificar PATH
-echo $env:PATH
-
-# Linux/Mac: Verificar instalación
-which ffmpeg
+# Verificar que el nombre del modelo coincide
+# Docker usa: Qwen/Qwen2.5-1.5B-Instruct
+# Variable de entorno: MODEL_NAME
 ```
 
 ### Problema: Error de numpy
@@ -347,12 +315,9 @@ which ffmpeg
 uv pip install "numpy<2.0"
 ```
 
-### Problema: Modelo de Whisper no descarga
+### Problema: Certificado HTTPS no confiable (Docker)
 
-```bash
-# Descargar manualmente
-python -c "from faster_whisper import WhisperModel; WhisperModel('medium')"
-```
+El certificado es auto-firmado. Acepta la advertencia del navegador o agrega el certificado (`nginx/certs/server.crt`) a tu almacén de confianza.
 
 ---
 
@@ -360,47 +325,13 @@ python -c "from faster_whisper import WhisperModel; WhisperModel('medium')"
 
 - [ ] Soporte para más idiomas (árabe, japonés, coreano)
 - [ ] Traducción de imágenes con OCR
-- [ ] API REST completa con autenticación JWT
 - [ ] Dashboard de métricas de uso
 - [ ] Soporte para archivos `.pptx` (PowerPoint)
 - [ ] Modo batch para múltiples documentos
 - [ ] Integración con bases de datos corporativas
 - [ ] Exportación de glosarios personalizados
 - [ ] Sistema de caché para traducciones frecuentes
-- [ ] Dockerización para despliegue simplificado
-
----
-
-## 🤝 Contribuciones
-
-Las contribuciones son bienvenidas para mejorar este sistema empresarial.
-
-### 📝 Guías de Contribución
-
-1. Haz fork del proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Asegúrate de que los tests pasen (`uv run pytest`)
-4. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-5. Push a la rama (`git push origin feature/AmazingFeature`)
-6. Abre un Pull Request
-
-### 🔍 Áreas de Mejora
-
-- Optimización de velocidad de traducción
-- Mejora de precisión en documentos técnicos
-- Soporte para más formatos de archivo
-- Mejoras en la UI/UX
-- Documentación adicional
-
----
-
-## 📚 Documentación Adicional
-
-- [Guía de Instalación Detallada](docs/installation.md)
-- [Configuración Avanzada](docs/configuration.md)
-- [API Reference](docs/api.md)
-- [Troubleshooting Guide](docs/troubleshooting.md)
-- [Security Best Practices](docs/security.md)
+- [ ] Reactivar servicio de voz (Faster-Whisper)
 
 ---
 
@@ -409,14 +340,7 @@ Las contribuciones son bienvenidas para mejorar este sistema empresarial.
 Para reportar bugs o solicitar nuevas funcionalidades:
 
 - 🐛 [Abrir Issue en GitHub](https://github.com/77ALDO77/Traductor-Local-ES-EN-CH-/issues)
-- 📧 Email: tu-email@ejemplo.com
 - 💼 Proyecto: Bank of China - Software Engineering
-
----
-
-## 🙏 Agradecimientos
-
-- 🎓 Proyecto: Ingeniería de Software - Bank of China
 
 ---
 
