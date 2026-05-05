@@ -1,6 +1,6 @@
 """
 Servicio de reconocimiento de voz.
-Actúa como cliente para el servicio 'translator_engine' donde corre Whisper.
+MODO: DUMMY / DESACTIVADO TEMPORALMENTE (Hardware Optimization)
 """
 
 import logging
@@ -8,13 +8,10 @@ from typing import Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
-# URL del servicio de traducción (docker container name)
-# TRANSLATOR_HOST = "http://translator_engine:9000" # DISABLED
-
 
 class VoiceService:
     """
-    Cliente para el servicio de voz remoto (translator_engine).
+    Servicio de reconocimiento de voz.
     MODO: DUMMY / DESACTIVADO TEMPORALMENTE (Hardware Optimization)
     """
 
@@ -42,7 +39,7 @@ class VoiceService:
         forced_language: Optional[str] = None
     ) -> Tuple[str, str, float]:
         """
-        Envía audio completo a translator_engine para transcripción.
+        Transcribe audio completo.
         """
         raise Exception("El servicio de voz está desactivado temporalmente por mantenimiento de hardware.")
 
@@ -53,7 +50,7 @@ class VoiceService:
         forced_language: Optional[str] = None
     ) -> Tuple[str, str, float]:
         """
-        Envía chunk de audio a translator_engine.
+        Transcribe chunk de audio.
         """
         raise Exception("El servicio de voz está desactivado temporalmente por mantenimiento de hardware.")
 

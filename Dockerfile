@@ -42,8 +42,6 @@ RUN uv sync --frozen --no-dev
 
 # 5. Copiar el código
 COPY backend ./backend
-COPY static ./static
-COPY templates ./templates
 COPY main.py ./
 
 # 6. Crear carpetas y asignar permisos

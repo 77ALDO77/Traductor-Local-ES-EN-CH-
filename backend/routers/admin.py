@@ -4,8 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from backend.auth import verify_admin
 from backend.services.audit_service import AUDIT_FILE
 from backend.services.llm_service import translation_service
-import httpx
-import os
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
@@ -172,55 +170,4 @@ async def select_model(request: ModelSelectRequest, username: str = Depends(veri
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- System Monitor ---
 
-TRANSLATOR_ENGINE_URL = os.getenv("TRANSLATOR_ENGINE_URL", "http://translator_engine:9000")
-LLM_HOST = os.getenv("LLM_HOST", "http://localhost:8000")
-
-@router.get("/system")
-async def get_system_status(username: str = Depends(verify_admin)):
-    """Obtiene estado agregado de CPU/RAM/GPU y modelos."""
-    try:
-        # Get Translator Engine Stats (Direct GPU access there)
-        async with httpx.AsyncClient() as client:
-            try:
-                te_resp = await client.get(f"{TRANSLATOR_ENGINE_URL}/status", timeout=2.0)
-                te_data = te_resp.json()
-            except Exception:
-                te_data = {"error": "Translator Engine offline"}
-
-            # Get vLLM Stats (list running models)
-            vllm_models = []
-            try:
-                vl_resp = await client.get(f"{LLM_HOST}/v1/models", timeout=2.0)
-                if vl_resp.status_code == 200:
-                    vllm_models = vl_resp.json().get("data", [])
-            except Exception:
-                pass
-
-        return {
-            "translator_engine": te_data,
-            "llm": {
-                "models": vllm_models,
-                "count": len(vllm_models)
-            }
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/system/optimize")
-async def optimize_system(username: str = Depends(verify_admin)):
-    """Libera recursos en todos los servicios."""
-    results = {}
-    async with httpx.AsyncClient() as client:
-        # 1. Cleanup Translator Engine
-        try:
-            resp = await client.post(f"{TRANSLATOR_ENGINE_URL}/cleanup", timeout=5.0)
-            results["translator_engine"] = resp.json()
-        except Exception as e:
-            results["translator_engine"] = {"error": str(e)}
-
-        # 2. vLLM memory management is automatic
-        results["llm"] = "Managed by vLLM"
-
-    return results

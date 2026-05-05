@@ -15,7 +15,7 @@ export default function Sidebar() {
                 <div className="flex flex-col gap-8">
                     {/* Logo */}
                     <div className="flex items-center gap-3 px-3">
-                        <img src="/static/images/icon-boc-white.png" className="bg-primary rounded-lg p-1.5 h-10 w-10" alt="BoC Logo" />
+                        <img src="/images/icon-boc-white.png" className="bg-primary rounded-lg p-1.5 h-10 w-10" alt="BoC Logo" />
                         <div className="flex flex-col">
                             <h1 className="text-[#171212] dark:text-white text-lg font-bold leading-normal">
                                 BoC Translator
