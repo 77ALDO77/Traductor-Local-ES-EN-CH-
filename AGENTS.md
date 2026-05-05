@@ -27,13 +27,13 @@ cd frontend && npm run lint       # ESLint
 - Docker runs a `vllm` service (`vllm/vllm-openai`) with `Qwen/Qwen2.5-1.5B-Instruct`.
 - The README mentions Ollama — **that is stale**. Ignore it.
 
-### Two frontend regimes
-- **Docker/production**: nginx serves the React SPA (`frontend/dist/`) on `/` with HTTPS (HTTP→HTTPS redirect). Proxies `/api/*` and `/static/*` to the FastAPI backend on port 8000.
-- **Local dev** (`uv run main.py`): FastAPI serves plain HTML files via `FileResponse` from `templates/`. No Jinja2 rendering. The React SPA must be built and served separately.
+### Frontend
+- **Docker/production**: nginx serves the React SPA (`frontend/dist/`) on `/` with HTTPS (HTTP→HTTPS redirect). Proxies `/api/*` to the FastAPI backend on port 8000.
+- **Local dev** (`npm run dev` in `frontend/`): Vite dev server on port 5173. Backend runs separately via `uv run main.py`.
 - Both regimes call the same backend API at `/api/*`.
 
 ### Backend structure
-- `main.py` — FastAPI app, lifespan (vLLM health check + file cleanup task), `FileResponse` HTML routes, static mount
+- `main.py` — FastAPI app, lifespan (vLLM health check + file cleanup task)
 - `backend/routers/` — `translation.py`, `documents.py`, `voice.py`, `admin.py`
 - `backend/services/` — module-level singletons:
   - `llm_service.py` → `translation_service` (vLLM via OpenAI-compatible API, with retry logic)
@@ -47,9 +47,6 @@ cd frontend && npm run lint       # ESLint
 
 ### Global singletons (no DI)
 `translation_service`, `document_service`, `voice_service`, `audit_service` are module-level globals. Import them directly.
-
-### translator_engine/ (disabled)
-A separate FastAPI microservice with CTranslate2 NMT and Faster-Whisper — commented out in `docker-compose.yml`. `FastTranslationService` in `llm_service.py` still references it but will fail if called.
 
 ## Key constraints
 

@@ -130,13 +130,10 @@ LLM_HOST=http://localhost:8001 uv run main.py
 
 **Frontend en desarrollo local:**
 
-El backend local sirve HTML plano desde `templates/`. Para usar la React SPA:
-
 ```bash
 cd frontend
 npm install
 npm run dev       # Vite dev server en http://localhost:5173
-npm run build     # genera dist/ (para producción/nginx)
 ```
 
 ---
@@ -178,10 +175,7 @@ Traductor-Local-ES-EN-CH-/
 │   ├── nginx.conf               # HTTPS + SPA routing + API proxy
 │   └── certs/                   # Self-signed TLS certificates
 │
-├── templates/                   # Plain HTML fallbacks (served by local dev backend)
-├── static/                      # Static assets (images, etc.)
-├── uploads/                     # Temp file storage (auto-cleanup)
-└── translator_engine/           # DISABLED — CTranslate2 NMT + Faster-Whisper microservice
+└── trad.html                    # Standalone translator page
 ```
 
 ---

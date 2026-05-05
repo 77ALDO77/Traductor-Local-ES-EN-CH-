@@ -5,53 +5,13 @@ import os
 import time
 import asyncio
 import logging
-import httpx
 from openai import AsyncOpenAI, APIError, APIStatusError
+import httpx
 
 logger = logging.getLogger(__name__)
 
 LLM_HOST = os.getenv("LLM_HOST", "http://localhost:8000")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-1.5B-Instruct")
-
-
-class FastTranslationService:
-    async def translate(self, text: str, source_lang: str, target_lang: str):
-        """
-        Traduce usando el servicio NMT local (translator_engine).
-        """
-        url = "http://translator_engine:9000/translate"
-        payload = {
-            "text": text,
-            "source_lang": source_lang,
-            "target_lang": target_lang,
-        }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(url, json=payload)
-
-            if resp.status_code // 100 != 2:
-                content_snippet = (resp.text or "").strip()[:300]
-                raise Exception(
-                    f"translator_engine devolvió {resp.status_code}: {content_snippet}"
-                )
-
-            try:
-                data = resp.json()
-            except Exception:
-                content_snippet = (resp.text or "").strip()[:300]
-                raise Exception(
-                    f"Respuesta no-JSON desde translator_engine: {content_snippet}"
-                )
-
-            translated = data.get("translated_text", "")
-            time_ms = data.get("time_ms")
-
-            return {
-                "translated_text": translated,
-                "processing_time_ms": round(float(time_ms), 2)
-                if isinstance(time_ms, (int, float))
-                else 0.0,
-            }
 
 
 class LLMTranslationService:

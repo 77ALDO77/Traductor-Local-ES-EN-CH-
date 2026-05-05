@@ -30,7 +30,7 @@ export default function Login() {
         <div className="flex justify-center items-center h-screen bg-[#f0f2f5] font-sans">
             <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm text-center">
                 <div className="flex justify-center mb-4">
-                    <img src="/static/images/logo-boc.png" alt="BoC" className="h-[60px]" />
+                    <img src="/images/logo-boc.png" alt="BoC" className="h-[60px]" />
                 </div>
                 <h2 className="text-xl font-bold mb-6 text-[#333]">Acceso Auditoría</h2>
                 <form onSubmit={handleLogin} className="text-left">

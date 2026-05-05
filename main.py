@@ -11,14 +11,11 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from openai import AsyncOpenAI
 
 # Importar routers
 from backend.routers import translation, documents, voice, admin
-
-
 
 # Configurar logging
 logging.basicConfig(
@@ -130,47 +127,11 @@ app = FastAPI(
 )
 
 
-# Montar archivos estáticos
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-
 # Registrar routers
 app.include_router(translation.router)
 app.include_router(documents.router)
 app.include_router(voice.router)
 app.include_router(admin.router)
-
-
-
-@app.get("/")
-async def root():
-    """Sirve la interfaz de traducción de texto."""
-    return FileResponse("templates/index.html")
-
-
-@app.get("/documents")
-async def documents_page():
-    """Sirve la interfaz de traducción de documentos."""
-    return FileResponse("templates/documents.html")
-
-
-@app.get("/voice")
-async def voice_page():
-    """Sirve la interfaz de traducción por voz."""
-    return FileResponse("templates/voice.html")
-
-
-@app.get("/login")
-async def login_page():
-    """Pagina de login para auditoría."""
-    return FileResponse("templates/login.html")
-
-
-@app.get("/admin/auditoria")
-async def admin_audit_page():
-    """Pagina de logs de auditoría."""
-    return FileResponse("templates/admin_audit.html")
-
 
 
 @app.get("/health")
